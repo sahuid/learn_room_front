@@ -1,0 +1,68 @@
+/* 通用页面容器样式 */
+.page-container {
+  padding: 24px;
+  max-width: 1200px;
+  margin: 0 auto;
+  min-height: calc(100vh - 64px); /* 减去导航栏高度 */
+}
+
+/* 通用卡片样式 */
+.content-card {
+  background: #fff;
+  border-radius: 8px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  padding: 24px;
+  margin-bottom: 24px;
+}
+
+/* 通用标题样式 */
+.page-title {
+  margin: 0 0 24px;
+  font-size: 20px;
+  font-weight: 500;
+  color: #1f1f1f;
+}
+
+/* 通用搜索表单样式 */
+.search-form {
+  margin-bottom: 24px;
+  padding: 24px;
+  background: #fafafa;
+  border-radius: 8px;
+}
+
+/* 通用表格样式 */
+.table-wrapper {
+  background: #fff;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+/* 通用按钮组样式 */
+.button-group {
+  margin-bottom: 24px;
+  display: flex;
+  gap: 8px;
+}
+
+/* 通用列表样式 */
+.list-container {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 24px;
+  margin-bottom: 24px;
+}
+
+/* 通用卡片项样式 */
+.card-item {
+  background: #fff;
+  border-radius: 8px;
+  padding: 16px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  transition: all 0.3s;
+}
+
+.card-item:hover {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  transform: translateY(-2px);
+} 
