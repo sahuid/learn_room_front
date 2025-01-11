@@ -75,29 +75,33 @@
     </a-card>
 
     <!-- 评论区 -->
-    <div class="content-card">
-      <h2 class="section-title">评论区</h2>
+    <a-card class="comment-section">
+      <template #title>评论区</template>
       
       <!-- 评论输入框 -->
       <div class="comment-input">
         <a-textarea
           v-model:value="commentContent"
           placeholder="写下你的评论..."
-          :auto-size="{ minRows: 2, maxRows: 5 }"
+          :rows="4"
+          :maxLength="500"
         />
         <div class="comment-actions">
+          <span class="comment-count">{{ commentContent.length }}/500</span>
           <a-button 
-            type="primary"
-            :loading="submitting"
-            @click="handleSubmitComment"
+            type="primary" 
+            @click="handlePublishComment"
+            :loading="publishing"
           >
-            发表评论
+            发布评论
           </a-button>
         </div>
       </div>
       
       <!-- 评论列表 -->
       <div class="comment-list">
+        <div>评论数量: {{ comments.length }}</div>
+        
         <a-list
           :loading="commentsLoading"
           :data-source="comments"
@@ -105,59 +109,16 @@
         >
           <template #renderItem="{ item }">
             <a-list-item>
-              <a-comment>
-                <template #avatar>
-                  <a-avatar>
-                    {{ item.userName?.charAt(0) }}
-                  </a-avatar>
-                </template>
-                <template #author>
-                  <a>{{ item.userName }}</a>
-                </template>
-                <template #content>
-                  <p>{{ item.content }}</p>
-                </template>
-                <template #datetime>
-                  <span>{{ formatDate(item.createTime) }}</span>
-                </template>
-                <template #actions>
-                  <span @click="handleReply(item)">回复</span>
-                </template>
-              </a-comment>
-              
-              <!-- 回复列表 -->
-              <div v-if="item.replies?.length" class="reply-list">
-                <a-list
-                  :data-source="item.replies"
-                  size="small"
-                >
-                  <template #renderItem="{ item: reply }">
-                    <a-list-item>
-                      <a-comment>
-                        <template #avatar>
-                          <a-avatar>
-                            {{ reply.userName?.charAt(0) }}
-                          </a-avatar>
-                        </template>
-                        <template #author>
-                          <a>{{ reply.userName }}</a>
-                        </template>
-                        <template #content>
-                          <p>{{ reply.content }}</p>
-                        </template>
-                        <template #datetime>
-                          <span>{{ formatDate(reply.createTime) }}</span>
-                        </template>
-                      </a-comment>
-                    </a-list-item>
-                  </template>
-                </a-list>
+              <div class="comment-content">
+                <div>用户: {{ item.userName }}</div>
+                <div>内容: {{ item.content }}</div>
+                <div>时间: {{ formatDateTime(item.createTime) }}</div>
               </div>
             </a-list-item>
           </template>
         </a-list>
       </div>
-    </div>
+    </a-card>
     
     <!-- 回复对话框 -->
     <a-modal
@@ -193,6 +154,8 @@ import {
   StarOutlined 
 } from '@ant-design/icons-vue'
 import { Comment } from 'ant-design-vue'
+import { commentApi } from '@/api/comment'
+import dayjs from 'dayjs'
 
 // 配置 marked
 marked.setOptions({
@@ -223,6 +186,7 @@ const commentsLoading = ref(false)
 const submitting = ref(false)
 const replyModalVisible = ref(false)
 const currentReplyTo = ref(null)
+const publishing = ref(false)
 
 // 评论分页配置
 const commentPagination = ref({
@@ -421,14 +385,20 @@ const handleViewAnswer = async () => {
 const fetchComments = async () => {
   commentsLoading.value = true
   try {
-    const res = await questionApi.getComments({
-      questionId: route.params.id,
+    const res = await commentApi.queryByPage({
+      targetId: route.params.id,
       page: commentPagination.value.current,
       pageSize: commentPagination.value.pageSize
     })
+    
+    console.log('评论数据:', res)
+    
     if (res.code === 200) {
-      comments.value = res.value.records || []
+      comments.value = res.value.data || []
       commentPagination.value.total = res.value.total || 0
+      console.log('处理后的评论数据:', comments.value)
+    } else {
+      message.error(res.msg || '获取评论失败')
     }
   } catch (error) {
     console.error('获取评论失败:', error)
@@ -499,9 +469,50 @@ const handleSubmitReply = async () => {
   }
 }
 
-// 格式化日期
-const formatDate = (date) => {
-  return new Date(date).toLocaleString()
+// 格式化日期时间
+const formatDateTime = (date) => {
+  if (!date) return ''
+  return dayjs(date).format('YYYY-MM-DD HH:mm:ss')
+}
+
+// 发布评论
+const handlePublishComment = async () => {
+  if (!commentContent.value.trim()) {
+    message.warning('请输入评论内容')
+    return
+  }
+
+  const currentUser = localStorage.getItem('currentUser')
+  if (!currentUser) {
+    message.warning('请先登录')
+    return
+  }
+
+  const userId = JSON.parse(currentUser).id
+  
+  try {
+    publishing.value = true
+    const res = await commentApi.publish({
+      content: commentContent.value.trim(),
+      userId: userId,
+      targetId: route.params.id,
+      parentId: null,
+      rootId: null
+    })
+
+    if (res.code === 200) {
+      message.success('评论发布成功')
+      commentContent.value = ''
+      fetchComments()
+    } else {
+      message.error(res.msg || '评论发布失败')
+    }
+  } catch (error) {
+    console.error('发布评论失败:', error)
+    message.error('评论发布失败，请重试')
+  } finally {
+    publishing.value = false
+  }
 }
 
 onMounted(async () => {
@@ -711,30 +722,102 @@ onMounted(async () => {
 }
 
 .comment-list {
-  margin-top: 24px;
-}
-
-.reply-list {
-  margin-left: 44px;
   margin-top: 16px;
-  border-left: 2px solid #f0f0f0;
-  padding-left: 16px;
 }
 
-:deep(.ant-comment-content-detail) {
+.comment-item {
+  width: 100%;
+}
+
+.comment-author {
+  font-weight: 500;
+  color: rgba(0, 0, 0, 0.85);
+}
+
+.comment-content {
   font-size: 14px;
+  color: rgba(0, 0, 0, 0.65);
+  white-space: pre-wrap;
+  word-break: break-word;
 }
 
-:deep(.ant-comment-actions) {
-  margin-top: 8px;
+.comment-time {
+  color: rgba(0, 0, 0, 0.45);
+  font-size: 12px;
 }
 
-:deep(.ant-comment-actions) span {
+.comment-action {
   color: #1890ff;
   cursor: pointer;
 }
 
-:deep(.ant-comment-actions) span:hover {
+.comment-action:hover {
   color: #40a9ff;
+}
+
+.sub-comments {
+  margin-left: 44px;
+  margin-top: 16px;
+  padding-left: 16px;
+  border-left: 1px solid #f0f0f0;
+}
+
+.reply-item {
+  width: 100%;
+}
+
+.reply-author {
+  font-size: 13px;
+  font-weight: 500;
+  color: rgba(0, 0, 0, 0.85);
+}
+
+.reply-content {
+  font-size: 13px;
+  color: rgba(0, 0, 0, 0.65);
+}
+
+.reply-time {
+  font-size: 12px;
+  color: rgba(0, 0, 0, 0.45);
+}
+
+:deep(.ant-list-item) {
+  padding: 16px;
+}
+
+:deep(.ant-comment-inner) {
+  padding: 8px 0;
+}
+
+:deep(.ant-comment-content-detail) {
+  margin-bottom: 8px;
+}
+
+:deep(.ant-list-split .ant-list-item) {
+  border-bottom: 1px solid #f0f0f0;
+}
+
+:deep(.ant-list-split .ant-list-item:last-child) {
+  border-bottom: none;
+}
+
+.comment-section {
+  margin-top: 24px;
+}
+
+.comment-input {
+  margin-bottom: 24px;
+}
+
+.comment-actions {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 12px;
+}
+
+.comment-count {
+  color: rgba(0, 0, 0, 0.45);
 }
 </style> 
