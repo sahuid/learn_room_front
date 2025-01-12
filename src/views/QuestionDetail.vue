@@ -1,20 +1,20 @@
 <template>
   <div v-if="loading" class="loading-container">
-    <a-spin size="large" />
+    <ASpin size="large" />
   </div>
   <div v-else-if="question.id" class="question-detail">
     <!-- 题目内容卡片 -->
-    <a-card class="question-card">
+    <ACard class="question-card">
       <div class="question-content">
         <h1 class="question-title">{{ question.title }}</h1>
         <div class="interaction-bar">
           <div class="stats">
-            <a-space>
+            <ASpace>
               <span class="stat-item">
                 <EyeOutlined />
                 <span>{{ question.viewCount || 0 }} 浏览</span>
               </span>
-              <a-divider type="vertical" />
+              <ADivider type="vertical" />
               <span 
                 class="stat-item clickable"
                 :class="{ active: question.isLiked }"
@@ -23,7 +23,7 @@
                 <LikeOutlined />
                 <span>{{ question.likeNum || 0 }} 点赞</span>
               </span>
-              <a-divider type="vertical" />
+              <ADivider type="vertical" />
               <span 
                 class="stat-item clickable"
                 :class="{ active: question.isCollected }"
@@ -32,26 +32,26 @@
                 <StarOutlined />
                 <span>{{ question.collectNum || 0 }} 收藏</span>
               </span>
-            </a-space>
+            </ASpace>
           </div>
         </div>
         <div v-if="question.context" class="question-context">
           <p>{{ question.context }}</p>
         </div>
         <div class="question-tags">
-          <a-tag 
+          <ATag 
             v-for="tag in (question.tags ? JSON.parse(question.tags) : [])"
             :key="tag"
             color="blue"
           >
             {{ tag }}
-          </a-tag>
+          </ATag>
         </div>
       </div>
-    </a-card>
+    </ACard>
 
     <!-- 答案卡片 -->
-    <a-card class="answer-card">
+    <ACard class="answer-card">
       <template #title>
         <div class="answer-header">
           <h2>推荐答案</h2>
@@ -62,25 +62,25 @@
           <div v-html="parsedAnswer"></div>
         </div>
         <div v-else class="answer-placeholder">
-          <a-button 
+          <AButton 
             type="primary" 
             size="large"
             :loading="viewLoading"
             @click="handleViewAnswer"
           >
             点击显示答案
-          </a-button>
+          </AButton>
         </div>
       </div>
-    </a-card>
+    </ACard>
 
     <!-- 评论区 -->
-    <a-card class="comment-section">
+    <ACard class="comment-section">
       <template #title>评论区</template>
       
       <!-- 评论输入框 -->
       <div class="comment-input">
-        <a-textarea
+        <ATextarea
           v-model:value="commentContent"
           placeholder="写下你的评论..."
           :rows="4"
@@ -88,54 +88,104 @@
         />
         <div class="comment-actions">
           <span class="comment-count">{{ commentContent.length }}/500</span>
-          <a-button 
+          <AButton 
             type="primary" 
             @click="handlePublishComment"
             :loading="publishing"
           >
             发布评论
-          </a-button>
+          </AButton>
         </div>
       </div>
       
       <!-- 评论列表 -->
       <div class="comment-list">
-        <div>评论数量: {{ comments.length }}</div>
-        
-        <a-list
+        <AList
           :loading="commentsLoading"
           :data-source="comments"
           :pagination="commentPagination"
         >
           <template #renderItem="{ item }">
-            <a-list-item>
-              <div class="comment-content">
-                <div>用户: {{ item.userName }}</div>
-                <div>内容: {{ item.content }}</div>
-                <div>时间: {{ formatDateTime(item.createTime) }}</div>
+            <AListItem>
+              <AComment class="comment-item">
+                <template #avatar>
+                  <AAvatar>
+                    {{ item.userName?.charAt(0) || 'U' }}
+                  </AAvatar>
+                </template>
+                <template #author>
+                  <span class="comment-author">{{ item.userName }}</span>
+                </template>
+                <template #content>
+                  <div class="comment-content">{{ item.content }}</div>
+                </template>
+                <template #datetime>
+                  <span class="comment-time">{{ formatDateTime(item.createTime) }}</span>
+                </template>
+                <template #actions>
+                  <span class="comment-action" @click="handleReply(item)">回复</span>
+                </template>
+              </AComment>
+
+              <!-- 子评论列表 -->
+              <div v-if="item.subComment?.length" class="sub-comments">
+                <a-list
+                  :data-source="item.subComment"
+                  size="small"
+                >
+                  <template #renderItem="{ item: reply }">
+                    <AListItem>
+                      <a-comment class="reply-item">
+                        <template #avatar>
+                          <a-avatar size="small">
+                            {{ reply.userName?.charAt(0) || 'U' }}
+                          </a-avatar>
+                        </template>
+                        <template #author>
+                          <span class="reply-author">{{ reply.userName }}</span>
+                        </template>
+                        <template #content>
+                          <div class="reply-content">{{ reply.content }}</div>
+                        </template>
+                        <template #datetime>
+                          <span class="reply-time">{{ formatDateTime(reply.createTime) }}</span>
+                        </template>
+                      </a-comment>
+                    </AListItem>
+                  </template>
+                </a-list>
               </div>
-            </a-list-item>
+            </AListItem>
           </template>
-        </a-list>
+        </AList>
       </div>
-    </a-card>
+    </ACard>
     
     <!-- 回复对话框 -->
-    <a-modal
+    <AModal
       v-model:visible="replyModalVisible"
       title="回复评论"
       @ok="handleSubmitReply"
+      @cancel="handleModalClose"
       :confirmLoading="submitting"
     >
-      <a-textarea
-        v-model:value="replyContent"
-        placeholder="写下你的回复..."
-        :auto-size="{ minRows: 2, maxRows: 5 }"
-      />
-    </a-modal>
+      <div class="reply-modal-content">
+        <div class="reply-to-info">
+          回复 {{ currentReplyTo?.userName }} 的评论：
+          <div class="original-comment">{{ currentReplyTo?.content }}</div>
+        </div>
+        <ATextarea
+          v-model:value="replyContent"
+          placeholder="写下你的回复..."
+          :rows="4"
+          :maxLength="500"
+        />
+        <div class="reply-count">{{ replyContent.length }}/500</div>
+      </div>
+    </AModal>
   </div>
   <div v-else class="error-container">
-    <a-empty description="暂无数据" />
+    <AEmpty description="暂无数据" />
   </div>
 </template>
 
@@ -144,7 +194,34 @@ import { ref, onMounted, computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { questionApi } from '@/api/question'
 import { userApi } from '@/api/user'
-import { message, Spin, Empty } from 'ant-design-vue'
+import { 
+  message,
+  Spin,
+  Empty,
+  Comment,
+  List,
+  Avatar,
+  Card,
+  Space,
+  Divider,
+  Tag,
+  Button,
+  Input,
+  Modal
+} from 'ant-design-vue'
+import 'ant-design-vue/es/message/style'
+import 'ant-design-vue/es/spin/style'
+import 'ant-design-vue/es/empty/style'
+import 'ant-design-vue/es/comment/style'
+import 'ant-design-vue/es/list/style'
+import 'ant-design-vue/es/avatar/style'
+import 'ant-design-vue/es/card/style'
+import 'ant-design-vue/es/space/style'
+import 'ant-design-vue/es/divider/style'
+import 'ant-design-vue/es/tag/style'
+import 'ant-design-vue/es/button/style'
+import 'ant-design-vue/es/input/style'
+import 'ant-design-vue/es/modal/style'
 import { marked } from 'marked'
 import 'highlight.js/styles/github.css'
 import hljs from 'highlight.js'
@@ -153,9 +230,23 @@ import {
   LikeOutlined, 
   StarOutlined 
 } from '@ant-design/icons-vue'
-import { Comment } from 'ant-design-vue'
 import { commentApi } from '@/api/comment'
 import dayjs from 'dayjs'
+
+// 重命名组件
+const ASpin = Spin
+const AEmpty = Empty
+const AComment = Comment
+const AList = List
+const AListItem = List.Item
+const AAvatar = Avatar
+const ACard = Card
+const ASpace = Space
+const ADivider = Divider
+const ATag = Tag
+const AButton = Button
+const ATextarea = Input.TextArea
+const AModal = Modal
 
 // 配置 marked
 marked.setOptions({
@@ -435,38 +526,57 @@ const handleSubmitComment = async () => {
   }
 }
 
-// 打开回复对话框
+// 处理点击回复按钮
 const handleReply = (comment) => {
   currentReplyTo.value = comment
   replyModalVisible.value = true
 }
 
-// 提交回复
+// 处理提交回复
 const handleSubmitReply = async () => {
   if (!replyContent.value.trim()) {
     message.warning('请输入回复内容')
     return
   }
 
-  submitting.value = true
+  const currentUser = localStorage.getItem('currentUser')
+  if (!currentUser) {
+    message.warning('请先登录')
+    return
+  }
+
+  const userId = JSON.parse(currentUser).id
+  
   try {
-    const res = await questionApi.addComment({
-      questionId: route.params.id,
-      content: replyContent.value,
-      parentId: currentReplyTo.value.id
+    submitting.value = true
+    const res = await commentApi.publish({
+      content: replyContent.value.trim(),
+      userId: userId,
+      targetId: route.params.id,
+      parentId: currentReplyTo.value.id,  // 父评论 ID
+      rootId: currentReplyTo.value.rootId || currentReplyTo.value.id  // 如果没有 rootId，说明回复的就是根评论
     })
+
     if (res.code === 200) {
       message.success('回复成功')
-      replyContent.value = ''
-      replyModalVisible.value = false
-      fetchComments()
+      replyContent.value = ''  // 清空回复内容
+      replyModalVisible.value = false  // 关闭对话框
+      fetchComments()  // 刷新评论列表
+    } else {
+      message.error(res.msg || '回复失败')
     }
   } catch (error) {
     console.error('回复失败:', error)
-    message.error('回复失败')
+    message.error('回复失败，请重试')
   } finally {
     submitting.value = false
   }
+}
+
+// 处理对话框关闭
+const handleModalClose = () => {
+  replyContent.value = ''  // 清空回复内容
+  currentReplyTo.value = null  // 清空当前回复对象
 }
 
 // 格式化日期时间
@@ -722,7 +832,7 @@ onMounted(async () => {
 }
 
 .comment-list {
-  margin-top: 16px;
+  margin-top: 24px;
 }
 
 .comment-item {
@@ -735,10 +845,10 @@ onMounted(async () => {
 }
 
 .comment-content {
+  margin: 8px 0;
   font-size: 14px;
-  color: rgba(0, 0, 0, 0.65);
-  white-space: pre-wrap;
-  word-break: break-word;
+  color: rgba(0, 0, 0, 0.85);
+  line-height: 1.5;
 }
 
 .comment-time {
@@ -749,6 +859,8 @@ onMounted(async () => {
 .comment-action {
   color: #1890ff;
   cursor: pointer;
+  font-size: 14px;
+  margin-right: 16px;
 }
 
 .comment-action:hover {
@@ -783,15 +895,28 @@ onMounted(async () => {
 }
 
 :deep(.ant-list-item) {
-  padding: 16px;
+  padding: 16px 24px;
+}
+
+:deep(.ant-comment) {
+  width: 100%;
 }
 
 :deep(.ant-comment-inner) {
-  padding: 8px 0;
+  padding: 12px 0;
 }
 
-:deep(.ant-comment-content-detail) {
-  margin-bottom: 8px;
+:deep(.ant-comment-content) {
+  width: 100%;
+}
+
+:deep(.ant-comment-actions) {
+  margin-top: 8px;
+}
+
+:deep(.ant-avatar) {
+  background-color: #1890ff;
+  color: #fff;
 }
 
 :deep(.ant-list-split .ant-list-item) {
@@ -802,12 +927,17 @@ onMounted(async () => {
   border-bottom: none;
 }
 
+:deep(.ant-list-pagination) {
+  margin-top: 24px;
+  text-align: center;
+}
+
 .comment-section {
   margin-top: 24px;
 }
 
 .comment-input {
-  margin-bottom: 24px;
+  margin: 24px 0;
 }
 
 .comment-actions {
@@ -818,6 +948,30 @@ onMounted(async () => {
 }
 
 .comment-count {
+  color: rgba(0, 0, 0, 0.45);
+}
+
+/* 回复对话框样式 */
+.reply-modal-content {
+  padding: 8px 0;
+}
+
+.reply-to-info {
+  margin-bottom: 16px;
+  color: rgba(0, 0, 0, 0.65);
+}
+
+.original-comment {
+  margin-top: 8px;
+  padding: 8px 12px;
+  background-color: #f5f5f5;
+  border-radius: 4px;
+  font-size: 14px;
+}
+
+.reply-count {
+  margin-top: 8px;
+  text-align: right;
   color: rgba(0, 0, 0, 0.45);
 }
 </style> 
