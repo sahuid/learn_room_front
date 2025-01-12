@@ -107,54 +107,13 @@
         >
           <template #renderItem="{ item }">
             <AListItem>
-              <AComment class="comment-item">
-                <template #avatar>
-                  <AAvatar>
-                    {{ item.userName?.charAt(0) || 'U' }}
-                  </AAvatar>
-                </template>
-                <template #author>
-                  <span class="comment-author">{{ item.userName }}</span>
-                </template>
-                <template #content>
-                  <div class="comment-content">{{ item.content }}</div>
-                </template>
-                <template #datetime>
-                  <span class="comment-time">{{ formatDateTime(item.createTime) }}</span>
-                </template>
-                <template #actions>
-                  <span class="comment-action" @click="handleReply(item)">回复</span>
-                </template>
-              </AComment>
-
-              <!-- 子评论列表 -->
-              <div v-if="item.subComment?.length" class="sub-comments">
-                <a-list
-                  :data-source="item.subComment"
-                  size="small"
-                >
-                  <template #renderItem="{ item: reply }">
-                    <AListItem>
-                      <a-comment class="reply-item">
-                        <template #avatar>
-                          <a-avatar size="small">
-                            {{ reply.userName?.charAt(0) || 'U' }}
-                          </a-avatar>
-                        </template>
-                        <template #author>
-                          <span class="reply-author">{{ reply.userName }}</span>
-                        </template>
-                        <template #content>
-                          <div class="reply-content">{{ reply.content }}</div>
-                        </template>
-                        <template #datetime>
-                          <span class="reply-time">{{ formatDateTime(reply.createTime) }}</span>
-                        </template>
-                      </a-comment>
-                    </AListItem>
-                  </template>
-                </a-list>
-              </div>
+              <CommentItem
+                :comment="item"
+                :level="0"
+                @reply="handleReply"
+                @view-replies="handleViewReplies"
+                @delete="handleDeleteComment"
+              />
             </AListItem>
           </template>
         </AList>
@@ -232,6 +191,7 @@ import {
 } from '@ant-design/icons-vue'
 import { commentApi } from '@/api/comment'
 import dayjs from 'dayjs'
+import CommentItem from '@/components/CommentItem.vue'
 
 // 重命名组件
 const ASpin = Spin
@@ -549,19 +509,38 @@ const handleSubmitReply = async () => {
   
   try {
     submitting.value = true
+    
+    // parentId 是当前要回复的评论的 id
+    const parentId = currentReplyTo.value.id
+    
+    // rootId 的设置：
+    // 1. 如果回复的评论没有 rootId，说明它是根评论，rootId 就设为它的 id
+    // 2. 如果回复的评论有 rootId，说明它是子评论，就用它的 rootId
+    const rootId = currentReplyTo.value.rootId || currentReplyTo.value.id
+
     const res = await commentApi.publish({
       content: replyContent.value.trim(),
       userId: userId,
       targetId: route.params.id,
-      parentId: currentReplyTo.value.id,  // 父评论 ID
-      rootId: currentReplyTo.value.rootId || currentReplyTo.value.id  // 如果没有 rootId，说明回复的就是根评论
+      parentId: parentId,
+      rootId: rootId
     })
 
     if (res.code === 200) {
       message.success('回复成功')
-      replyContent.value = ''  // 清空回复内容
-      replyModalVisible.value = false  // 关闭对话框
-      fetchComments()  // 刷新评论列表
+      replyContent.value = ''
+      replyModalVisible.value = false
+      
+      // 如果回复的是根评论，刷新整个列表
+      if (!currentReplyTo.value.rootId) {
+        fetchComments()
+      } else {
+        // 如果回复的是子评论，只刷新对应的根评论的回复列表
+        const rootComment = findRootComment(comments.value, rootId)
+        if (rootComment) {
+          handleViewReplies(rootComment)
+        }
+      }
     } else {
       message.error(res.msg || '回复失败')
     }
@@ -571,6 +550,16 @@ const handleSubmitReply = async () => {
   } finally {
     submitting.value = false
   }
+}
+
+// 添加一个辅助函数来查找根评论
+const findRootComment = (comments, rootId) => {
+  for (const comment of comments) {
+    if (comment.id === rootId) {
+      return comment
+    }
+  }
+  return null
 }
 
 // 处理对话框关闭
@@ -585,7 +574,7 @@ const formatDateTime = (date) => {
   return dayjs(date).format('YYYY-MM-DD HH:mm:ss')
 }
 
-// 发布评论
+// 发布评论（根评论）
 const handlePublishComment = async () => {
   if (!commentContent.value.trim()) {
     message.warning('请输入评论内容')
@@ -606,8 +595,8 @@ const handlePublishComment = async () => {
       content: commentContent.value.trim(),
       userId: userId,
       targetId: route.params.id,
-      parentId: null,
-      rootId: null
+      parentId: null,  // 根评论的 parentId 为 null
+      rootId: null     // 根评论的 rootId 为 null
     })
 
     if (res.code === 200) {
@@ -622,6 +611,111 @@ const handlePublishComment = async () => {
     message.error('评论发布失败，请重试')
   } finally {
     publishing.value = false
+  }
+}
+
+// 处理查看回复
+const handleViewReplies = async (comment) => {
+  // 如果已经加载了子评论，就收起来
+  if (comment.subComment) {
+    comment.subComment = null
+    return
+  }
+
+  try {
+    const res = await commentApi.queryReplyComment(comment.id)
+
+    if (res.code === 200) {
+      // 更新回复数
+      const replyCount = res.value?.length || 0
+      
+      // 递归查找并更新评论
+      const updateCommentRecursively = (comments, targetId, newSubComments, newReplyCount) => {
+        for (let i = 0; i < comments.length; i++) {
+          if (comments[i].id === targetId) {
+            // 找到目标评论，更新它的子评论和回复数
+            comments[i] = { 
+              ...comments[i], 
+              subComment: newSubComments,
+              replyCount: newReplyCount
+            }
+            return true
+          }
+          // 如果当前评论有子评论，递归查找
+          if (comments[i].subComment?.length) {
+            const found = updateCommentRecursively(
+              comments[i].subComment, 
+              targetId, 
+              newSubComments,
+              newReplyCount
+            )
+            if (found) {
+              // 如果在子评论中找到了目标，更新整个父评论以保持响应性
+              comments[i] = { ...comments[i] }
+              return true
+            }
+          }
+        }
+        return false
+      }
+
+      // 创建一个新的评论数组来保持响应性
+      const newComments = [...comments.value]
+      updateCommentRecursively(newComments, comment.id, res.value, replyCount)
+      comments.value = newComments
+
+    } else {
+      message.error(res.msg || '获取回复失败')
+    }
+  } catch (error) {
+    console.error('获取回复失败:', error)
+    message.error('获取回复失败，请重试')
+  }
+}
+
+// 处理删除评论
+const handleDeleteComment = async (comment) => {
+  try {
+    const res = await commentApi.delete(comment.id)
+    
+    if (res.code === 200) {
+      message.success('删除成功')
+      
+      // 如果删除的是根评论，直接刷新评论列表
+      if (!comment.rootId) {
+        fetchComments()
+      } else {
+        // 如果删除的是子评论，需要更新父评论的回复数和回复列表
+        const rootComment = findRootComment(comments.value, comment.rootId)
+        if (rootComment) {
+          // 更新父评论的回复数
+          rootComment.replyCount = Math.max(0, (rootComment.replyCount || 0) - 1)
+          
+          // 如果父评论已展开子评论列表，重新获取回复列表
+          if (rootComment.subComment) {
+            handleViewReplies(rootComment)
+          }
+          
+          // 如果删除后没有回复了，清空子评论列表
+          if (rootComment.replyCount === 0) {
+            rootComment.subComment = null
+          }
+          
+          // 更新评论列表以保持响应性
+          const newComments = [...comments.value]
+          const index = newComments.findIndex(c => c.id === rootComment.id)
+          if (index > -1) {
+            newComments[index] = { ...rootComment }
+            comments.value = newComments
+          }
+        }
+      }
+    } else {
+      message.error(res.msg || '删除失败')
+    }
+  } catch (error) {
+    console.error('删除评论失败:', error)
+    message.error('删除失败，请重试')
   }
 }
 
@@ -869,24 +963,46 @@ onMounted(async () => {
 
 .sub-comments {
   margin-left: 44px;
-  margin-top: 16px;
-  padding-left: 16px;
-  border-left: 1px solid #f0f0f0;
+  margin-top: 12px;
+  padding: 8px 0 8px 16px;
+  border-left: 2px solid #f0f0f0;
+  background-color: #fafafa;
+  border-radius: 4px;
+}
+
+.sub-comments :deep(.ant-list-item) {
+  padding: 8px 16px;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.sub-comments :deep(.ant-list-item:last-child) {
+  border-bottom: none;
 }
 
 .reply-item {
   width: 100%;
+  padding: 8px 0;
+}
+
+.reply-item :deep(.ant-comment-inner) {
+  padding: 4px 0;
+}
+
+.reply-item :deep(.ant-comment-content) {
+  padding-left: 8px;
 }
 
 .reply-author {
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 500;
   color: rgba(0, 0, 0, 0.85);
 }
 
 .reply-content {
-  font-size: 13px;
-  color: rgba(0, 0, 0, 0.65);
+  font-size: 14px;
+  color: rgba(0, 0, 0, 0.85);
+  line-height: 1.6;
+  margin: 4px 0;
 }
 
 .reply-time {
@@ -894,29 +1010,15 @@ onMounted(async () => {
   color: rgba(0, 0, 0, 0.45);
 }
 
-:deep(.ant-list-item) {
-  padding: 16px 24px;
+.reply-item :deep(.ant-comment-actions) {
+  margin-top: 4px;
 }
 
-:deep(.ant-comment) {
-  width: 100%;
-}
-
-:deep(.ant-comment-inner) {
-  padding: 12px 0;
-}
-
-:deep(.ant-comment-content) {
-  width: 100%;
-}
-
-:deep(.ant-comment-actions) {
-  margin-top: 8px;
-}
-
-:deep(.ant-avatar) {
-  background-color: #1890ff;
-  color: #fff;
+.reply-item :deep(.ant-avatar) {
+  width: 28px;
+  height: 28px;
+  line-height: 28px;
+  font-size: 14px;
 }
 
 :deep(.ant-list-split .ant-list-item) {
@@ -973,5 +1075,117 @@ onMounted(async () => {
   margin-top: 8px;
   text-align: right;
   color: rgba(0, 0, 0, 0.45);
+}
+
+.comment-actions-wrapper {
+  display: flex;
+  gap: 16px;
+  align-items: center;
+}
+
+.reply-count-badge {
+  font-size: 12px;
+  color: rgba(0, 0, 0, 0.45);
+  margin-left: 4px;
+}
+
+.comment-action {
+  color: #1890ff;
+  cursor: pointer;
+  font-size: 14px;
+  transition: color 0.3s;
+  display: flex;
+  align-items: center;
+}
+
+.comment-action:hover {
+  color: #40a9ff;
+}
+
+/* 评论容器样式 */
+.comment-wrapper {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+/* 子评论区域样式 */
+.sub-comments {
+  margin-top: 12px;
+  margin-left: 32px;  /* 缩进距离 */
+  padding: 12px 16px;
+  background-color: #fafafa;
+  border-radius: 4px;
+  border-left: 2px solid #f0f0f0;
+}
+
+/* 子评论列表项样式 */
+.sub-comments :deep(.ant-list-item) {
+  padding: 8px 0;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.sub-comments :deep(.ant-list-item:last-child) {
+  border-bottom: none;
+}
+
+/* 子评论内容样式 */
+.reply-item {
+  width: 100%;
+  padding: 4px 0;
+}
+
+.reply-item :deep(.ant-comment-inner) {
+  padding: 4px 0;
+}
+
+.reply-item :deep(.ant-comment-content) {
+  padding-left: 8px;
+}
+
+/* 嵌套回复的样式 */
+.nested-replies {
+  margin-top: 8px;
+  margin-left: 24px;
+  padding: 8px 12px;
+  background-color: #f7f7f7;
+  border-radius: 4px;
+  border-left: 2px solid #e8e8e8;
+}
+
+.nested-reply-item {
+  width: 100%;
+  padding: 4px 0;
+}
+
+.nested-reply-item :deep(.ant-comment-inner) {
+  padding: 4px 0;
+}
+
+.nested-reply-item :deep(.ant-comment-content) {
+  padding-left: 8px;
+}
+
+.nested-reply-item :deep(.ant-avatar) {
+  width: 24px;
+  height: 24px;
+  line-height: 24px;
+  font-size: 12px;
+}
+
+/* 调整嵌套层级的边距和样式 */
+.sub-comments .nested-replies {
+  background-color: #fefefe;
+  border-left-color: #f0f0f0;
+}
+
+/* 优化嵌套评论的间距 */
+.nested-replies :deep(.ant-list-item) {
+  padding: 4px 0;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.nested-replies :deep(.ant-list-item:last-child) {
+  border-bottom: none;
 }
 </style> 
