@@ -23,7 +23,7 @@
 </template>
 
 <script setup>
-import { defineProps, defineEmits, ref } from 'vue'
+import { defineProps, ref } from 'vue'
 import { BookOutlined } from '@ant-design/icons-vue'
 import { questionBankApi } from '@/api/questionBank'
 import { message } from 'ant-design-vue'
@@ -39,7 +39,6 @@ const props = defineProps({
   }
 })
 
-const emit = defineEmits(['questionLoaded'])
 const router = useRouter()
 
 // 图片加载错误处理

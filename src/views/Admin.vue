@@ -156,7 +156,7 @@ import { h } from 'vue'
 import { userApi } from '@/api/user'
 import { questionApi } from '@/api/question'
 import { questionBankApi } from '@/api/questionBank'
-import { message, Button, Space, Tag, Popconfirm, Modal, Select } from 'ant-design-vue'
+import { message, Button, Space, Tag, Popconfirm, Modal } from 'ant-design-vue'
 import dayjs from 'dayjs'
 import { PlusOutlined } from '@ant-design/icons-vue'
 import AddQuestionModal from '@/components/AddQuestionModal.vue'
@@ -512,12 +512,6 @@ watch(bankModalVisible, async (visible) => {
     bankList.value = [...bankList.value]
   }
 })
-
-// 获取题库名称的辅助函数
-const getBankTitle = (bankId) => {
-  const bank = bankList.value.find(b => b.id === bankId)
-  return bank ? bank.title : ''
-}
 
 // 添加题库管理相关的状态和方法
 // 题库搜索表单

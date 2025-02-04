@@ -91,6 +91,8 @@ import { BookOutlined } from '@ant-design/icons-vue'
 const ATable = Table
 const ATag = Tag
 const AButton = Button
+const ASpin = Spin
+const AEmpty = Empty
 
 const route = useRoute()
 const router = useRouter()

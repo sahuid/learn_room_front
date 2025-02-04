@@ -163,14 +163,10 @@ import { HeatmapChart } from 'echarts/charts'
 import { CanvasRenderer } from 'echarts/renderers'
 import dayjs from 'dayjs'
 import { 
-  EyeOutlined, 
-  LikeOutlined, 
-  StarOutlined,
-  UserOutlined,
-  LockOutlined 
+  EyeOutlined 
 } from '@ant-design/icons-vue'
+import { message, Empty } from 'ant-design-vue'
 import { useRouter } from 'vue-router'
-import { message, Empty, Button } from 'ant-design-vue'
 
 // 注册必需的组件
 echarts.use([
@@ -190,28 +186,11 @@ const userInfo = ref({
   updateTime: ''
 })
 
-// 格式化日期
-const formatDate = (dateString) => {
-  if (!dateString) return '暂无'
-  const date = new Date(dateString)
-  return date.toLocaleString('zh-CN', {
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-    second: '2-digit'
-  })
-}
-
 // 格式化日期时间
 const formatDateTime = (dateString) => {
   if (!dateString) return '暂无'
   return dayjs(dateString).format('YYYY-MM-DD HH:mm:ss')
 }
-
-// 当前日期
-const today = ref(dayjs())
 
 // ECharts 实例
 let chart = null

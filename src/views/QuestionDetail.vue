@@ -90,7 +90,7 @@
           <span class="comment-count">{{ commentContent.length }}/500</span>
           <AButton 
             type="primary" 
-            @click="handlePublishComment"
+            @click="handleSubmitComment"
             :loading="publishing"
           >
             发布评论
@@ -157,9 +157,7 @@ import {
   message,
   Spin,
   Empty,
-  Comment,
   List,
-  Avatar,
   Card,
   Space,
   Divider,
@@ -190,16 +188,13 @@ import {
   StarOutlined 
 } from '@ant-design/icons-vue'
 import { commentApi } from '@/api/comment'
-import dayjs from 'dayjs'
 import CommentItem from '@/components/CommentItem.vue'
 
 // 重命名组件
 const ASpin = Spin
 const AEmpty = Empty
-const AComment = Comment
 const AList = List
 const AListItem = List.Item
-const AAvatar = Avatar
 const ACard = Card
 const ASpace = Space
 const ADivider = Divider
@@ -442,12 +437,10 @@ const fetchComments = async () => {
       pageSize: commentPagination.value.pageSize
     })
     
-    console.log('评论数据:', res)
-    
     if (res.code === 200) {
+      // 直接使用返回的数据，不再获取点赞状态
       comments.value = res.value.data || []
       commentPagination.value.total = res.value.total || 0
-      console.log('处理后的评论数据:', comments.value)
     } else {
       message.error(res.msg || '获取评论失败')
     }
@@ -566,52 +559,6 @@ const findRootComment = (comments, rootId) => {
 const handleModalClose = () => {
   replyContent.value = ''  // 清空回复内容
   currentReplyTo.value = null  // 清空当前回复对象
-}
-
-// 格式化日期时间
-const formatDateTime = (date) => {
-  if (!date) return ''
-  return dayjs(date).format('YYYY-MM-DD HH:mm:ss')
-}
-
-// 发布评论（根评论）
-const handlePublishComment = async () => {
-  if (!commentContent.value.trim()) {
-    message.warning('请输入评论内容')
-    return
-  }
-
-  const currentUser = localStorage.getItem('currentUser')
-  if (!currentUser) {
-    message.warning('请先登录')
-    return
-  }
-
-  const userId = JSON.parse(currentUser).id
-  
-  try {
-    publishing.value = true
-    const res = await commentApi.publish({
-      content: commentContent.value.trim(),
-      userId: userId,
-      targetId: route.params.id,
-      parentId: null,  // 根评论的 parentId 为 null
-      rootId: null     // 根评论的 rootId 为 null
-    })
-
-    if (res.code === 200) {
-      message.success('评论发布成功')
-      commentContent.value = ''
-      fetchComments()
-    } else {
-      message.error(res.msg || '评论发布失败')
-    }
-  } catch (error) {
-    console.error('发布评论失败:', error)
-    message.error('评论发布失败，请重试')
-  } finally {
-    publishing.value = false
-  }
 }
 
 // 处理查看回复
