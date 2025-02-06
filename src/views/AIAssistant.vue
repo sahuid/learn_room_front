@@ -11,7 +11,8 @@
             :class="['message', msg.role === 'user' ? 'user-message' : 'ai-message']"
           >
             <div class="message-content">
-              {{ msg.content }}
+              <span v-if="msg.role === 'ai'">{{ msg.content }}</span>
+              <span v-else>{{ msg.content }}</span>
             </div>
           </div>
         </div>
@@ -38,8 +39,11 @@
 </template>
 
 <script setup>
-import { ref, nextTick, onMounted } from 'vue'
+import { ref, nextTick, onMounted, onUnmounted } from 'vue'
 import { message } from 'ant-design-vue'
+
+// WebSocket 实例
+let ws = null
 
 const inputMessage = ref('')
 const messages = ref([
@@ -48,9 +52,56 @@ const messages = ref([
 const loading = ref(false)
 const messagesRef = ref(null)
 
+// 初始化 WebSocket 连接
+const initWebSocket = () => {
+  // 创建 WebSocket 连接
+  ws = new WebSocket('ws://localhost:8080/api/chat')
+
+  // 连接建立时的回调
+  ws.onopen = () => {
+    console.log('WebSocket 连接已建立')
+    message.success('已连接到 AI 助手')
+  }
+
+  // 接收消息的回调
+  ws.onmessage = (event) => {
+    console.log('收到消息:', event.data)
+    // 处理接收到的消息
+    const lastMessage = messages.value[messages.value.length - 1]
+    if (lastMessage.role === 'ai') {
+      // 如果最后一条消息是 AI 的回答，则追加到内容中
+      lastMessage.content += event.data
+    } else {
+      // 否则创建一个新的消息
+      messages.value.push({
+        role: 'ai',
+        content: event.data
+      })
+    }
+    scrollToBottom()
+  }
+
+  // 连接关闭的回调
+  ws.onclose = () => {
+    console.log('WebSocket 连接已关闭')
+    message.warning('与 AI 助手的连接已断开')
+  }
+
+  // 发生错误时的回调
+  ws.onerror = (error) => {
+    console.error('WebSocket 错误:', error)
+    message.error('连接发生错误')
+  }
+}
+
 // 发送消息
 const handleSend = async () => {
   if (!inputMessage.value.trim()) {
+    return
+  }
+
+  if (!ws || ws.readyState !== WebSocket.OPEN) {
+    message.error('未连接到服务器')
     return
   }
 
@@ -62,37 +113,40 @@ const handleSend = async () => {
 
   loading.value = true
   try {
-    // TODO: 调用后端 AI 接口
-    // const res = await aiApi.chat({
-    //   message: inputMessage.value
-    // })
-    
-    // 模拟 AI 回复
-    await new Promise(resolve => setTimeout(resolve, 1000))
-    messages.value.push({
-      role: 'ai',
-      content: '这是一个模拟的 AI 回复。'
-    })
-
+    // 发送消息到服务器
+    ws.send(inputMessage.value)
     inputMessage.value = ''
     
     // 滚动到底部
     await nextTick()
-    if (messagesRef.value) {
-      messagesRef.value.scrollTop = messagesRef.value.scrollHeight
-    }
+    scrollToBottom()
   } catch (error) {
-    console.error('AI 回复失败:', error)
-    message.error('AI 回复失败，请重试')
+    console.error('发送消息失败:', error)
+    message.error('发送消息失败')
   } finally {
     loading.value = false
   }
 }
 
-onMounted(() => {
-  // 初始滚动到底部
+// 滚动到底部
+const scrollToBottom = () => {
   if (messagesRef.value) {
     messagesRef.value.scrollTop = messagesRef.value.scrollHeight
+  }
+}
+
+onMounted(() => {
+  // 初始化 WebSocket 连接
+  initWebSocket()
+  // 初始滚动到底部
+  scrollToBottom()
+})
+
+// 组件卸载时关闭 WebSocket 连接
+onUnmounted(() => {
+  if (ws) {
+    ws.close()
+    ws = null
   }
 })
 </script>
@@ -112,6 +166,7 @@ onMounted(() => {
   height: calc(100vh - 112px);
   display: flex;
   flex-direction: column;
+
 }
 
 .section-title {
