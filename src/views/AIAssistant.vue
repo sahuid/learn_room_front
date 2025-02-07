@@ -12,7 +12,16 @@
           >
             <div class="message-content">
               <span v-if="msg.role === 'user'">{{ msg.content }}</span>
-              <div v-else v-html="msg.content" class="markdown-content"></div>
+              <div v-else>
+                <!-- 最后一条消息且正在接收时显示缓冲内容 -->
+                <div 
+                  v-if="index === messages.length - 1 && loading" 
+                  v-html="getProcessedContent(msg.content)" 
+                  class="markdown-content"
+                ></div>
+                <!-- 其他消息显示已处理的内容 -->
+                <div v-else v-html="msg.content" class="markdown-content"></div>
+              </div>
             </div>
           </div>
         </div>
@@ -54,6 +63,8 @@ const messages = ref([
 ])
 const loading = ref(false)
 const messagesRef = ref(null)
+const messageBuffer = ref('')
+const currentMessageParts = ref([])
 
 // 配置 marked
 marked.setOptions({
@@ -66,6 +77,15 @@ marked.setOptions({
   breaks: true,
   gfm: true
 })
+
+// 处理 markdown 内容的函数
+const getProcessedContent = (content) => {
+  try {
+    return marked(content)
+  } catch (e) {
+    return content
+  }
+}
 
 // 初始化 WebSocket 连接
 const initWebSocket = () => {
@@ -82,25 +102,99 @@ const initWebSocket = () => {
   ws.onmessage = (event) => {
     console.log('收到消息:', event.data)
     
-    // 如果收到"生成结束"的消息，不显示这个消息
     if (event.data === '生成结束') {
+      // 处理最后一条完整消息
+      const lastMessage = messages.value[messages.value.length - 1]
+      if (lastMessage.role === 'ai') {
+        // 合并所有消息部分并进行最终的 markdown 处理
+        const completeContent = currentMessageParts.value.join('')
+        lastMessage.content = getProcessedContent(completeContent)
+      }
+      // 清理缓冲区
+      messageBuffer.value = ''
+      currentMessageParts.value = []
       loading.value = false
       return
     }
+
+    // 将新消息添加到缓冲区
+    messageBuffer.value += event.data
     
-    // 处理接收到的消息
+    // 尝试处理完整的句子或 markdown 块
+    const result = processMessageBuffer()
+    
+    // 更新或创建消息
     const lastMessage = messages.value[messages.value.length - 1]
-    if (lastMessage.role === 'ai') {
-      // 如果最后一条消息是 AI 的回答，则追加到内容中并转换 Markdown
-      lastMessage.content = marked(lastMessage.content + event.data)
+    if (lastMessage?.role === 'ai') {
+      // 更新现有消息
+      currentMessageParts.value.push(result)
+      lastMessage.content = currentMessageParts.value.join('')
     } else {
-      // 否则创建一个新的消息
+      // 创建新消息
+      currentMessageParts.value = [result]
       messages.value.push({
         role: 'ai',
-        content: marked(event.data)
+        content: result
       })
     }
+    
     scrollToBottom()
+  }
+
+  // 处理消息缓冲区的函数
+  const processMessageBuffer = () => {
+    // 查找完整的句子或 markdown 块的结束位置
+    const sentenceEnd = findCompleteMessageEnd(messageBuffer.value)
+    
+    if (sentenceEnd > -1) {
+      // 提取完整的部分
+      const completePart = messageBuffer.value.substring(0, sentenceEnd + 1)
+      // 保留剩余部分在缓冲区
+      messageBuffer.value = messageBuffer.value.substring(sentenceEnd + 1)
+      return completePart
+    }
+    
+    // 如果没有找到完整的句子，返回当前缓冲区内容
+    const content = messageBuffer.value
+    messageBuffer.value = ''
+    return content
+  }
+
+  // 查找完整消息结束位置的函数
+  const findCompleteMessageEnd = (text) => {
+    // 常见的句子结束标记
+    const sentenceEndings = ['.', '!', '?', '\n']
+    // Markdown 块的结束标记（使用转义字符）
+    const markdownEndings = ['```', '`', '\\*\\*', '\\*', '_']
+    
+    let lastEnd = -1
+    
+    // 检查句子结束
+    for (const ending of sentenceEndings) {
+      const pos = text.lastIndexOf(ending)
+      if (pos > lastEnd) {
+        // 确保这不是一个 markdown 标记的一部分
+        const isPartOfMarkdown = markdownEndings.some(mark => 
+          text.substring(pos - mark.length, pos + mark.length).includes(mark.replace(/\\/g, ''))
+        )
+        if (!isPartOfMarkdown) {
+          lastEnd = pos
+        }
+      }
+    }
+    
+    // 检查 markdown 块的完整性
+    for (const mark of markdownEndings) {
+      // 创建正则表达式时转义特殊字符
+      const regex = new RegExp(mark, 'g')
+      const count = (text.match(regex) || []).length
+      if (count % 2 !== 0) {
+        // 如果标记不配对，返回最后一个完整句子的位置
+        return lastEnd
+      }
+    }
+    
+    return lastEnd
   }
 
   // 连接关闭的回调
@@ -254,6 +348,11 @@ onUnmounted(() => {
 /* Markdown 内容样式 */
 .markdown-content {
   line-height: 1.6;
+  transition: opacity 0.2s ease;
+}
+
+.message-content {
+  transition: all 0.3s ease;
 }
 
 .markdown-content :deep(pre) {
