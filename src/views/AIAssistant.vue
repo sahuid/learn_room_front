@@ -11,8 +11,8 @@
             :class="['message', msg.role === 'user' ? 'user-message' : 'ai-message']"
           >
             <div class="message-content">
-              <span v-if="msg.role === 'ai'">{{ msg.content }}</span>
-              <span v-else>{{ msg.content }}</span>
+              <span v-if="msg.role === 'user'">{{ msg.content }}</span>
+              <div v-else v-html="msg.content" class="markdown-content"></div>
             </div>
           </div>
         </div>
@@ -41,6 +41,9 @@
 <script setup>
 import { ref, nextTick, onMounted, onUnmounted } from 'vue'
 import { message } from 'ant-design-vue'
+import { marked } from 'marked'
+import 'highlight.js/styles/github.css'
+import hljs from 'highlight.js'
 
 // WebSocket 实例
 let ws = null
@@ -51,6 +54,18 @@ const messages = ref([
 ])
 const loading = ref(false)
 const messagesRef = ref(null)
+
+// 配置 marked
+marked.setOptions({
+  highlight: function (code, lang) {
+    if (lang && hljs.getLanguage(lang)) {
+      return hljs.highlight(code, { language: lang }).value
+    }
+    return hljs.highlightAuto(code).value
+  },
+  breaks: true,
+  gfm: true
+})
 
 // 初始化 WebSocket 连接
 const initWebSocket = () => {
@@ -66,16 +81,23 @@ const initWebSocket = () => {
   // 接收消息的回调
   ws.onmessage = (event) => {
     console.log('收到消息:', event.data)
+    
+    // 如果收到"生成结束"的消息，不显示这个消息
+    if (event.data === '生成结束') {
+      loading.value = false
+      return
+    }
+    
     // 处理接收到的消息
     const lastMessage = messages.value[messages.value.length - 1]
     if (lastMessage.role === 'ai') {
-      // 如果最后一条消息是 AI 的回答，则追加到内容中
-      lastMessage.content += event.data
+      // 如果最后一条消息是 AI 的回答，则追加到内容中并转换 Markdown
+      lastMessage.content = marked(lastMessage.content + event.data)
     } else {
       // 否则创建一个新的消息
       messages.value.push({
         role: 'ai',
-        content: event.data
+        content: marked(event.data)
       })
     }
     scrollToBottom()
@@ -227,5 +249,73 @@ onUnmounted(() => {
 .chat-input .ant-btn {
   height: 54px;
   padding: 0 24px;
+}
+
+/* Markdown 内容样式 */
+.markdown-content {
+  line-height: 1.6;
+}
+
+.markdown-content :deep(pre) {
+  background-color: #f6f8fa;
+  border-radius: 6px;
+  padding: 16px;
+  overflow: auto;
+}
+
+.markdown-content :deep(code) {
+  font-family: Consolas, Monaco, 'Andale Mono', 'Ubuntu Mono', monospace;
+  font-size: 14px;
+}
+
+.markdown-content :deep(p) {
+  margin: 8px 0;
+}
+
+.markdown-content :deep(ul), 
+.markdown-content :deep(ol) {
+  padding-left: 20px;
+  margin: 8px 0;
+}
+
+.markdown-content :deep(h1),
+.markdown-content :deep(h2),
+.markdown-content :deep(h3),
+.markdown-content :deep(h4),
+.markdown-content :deep(h5),
+.markdown-content :deep(h6) {
+  margin: 16px 0 8px;
+  font-weight: 600;
+}
+
+.markdown-content :deep(blockquote) {
+  margin: 8px 0;
+  padding: 0 16px;
+  color: #666;
+  border-left: 4px solid #ddd;
+}
+
+.markdown-content :deep(table) {
+  border-collapse: collapse;
+  margin: 8px 0;
+  width: 100%;
+}
+
+.markdown-content :deep(th),
+.markdown-content :deep(td) {
+  border: 1px solid #ddd;
+  padding: 8px;
+}
+
+.markdown-content :deep(th) {
+  background-color: #f6f8fa;
+}
+
+/* 调整 AI 消息样式以适应 Markdown 内容 */
+.ai-message .message-content {
+  padding: 16px;
+  background: #fff;
+  border: 1px solid #e8e8e8;
+  border-radius: 8px;
 }
 </style> 
