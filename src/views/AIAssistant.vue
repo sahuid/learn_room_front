@@ -71,16 +71,13 @@ marked.setOptions({
 // 处理 markdown 内容的函数
 const processMarkdown = (text) => {
   try {
-    // 检查是否有未闭合的 Markdown 标记
     const incompleteMarkdown = checkIncompleteMarkdown(text)
     if (incompleteMarkdown.isIncomplete) {
-      // 如果有未闭合的标记，只处理完整部分
       return {
         complete: marked(incompleteMarkdown.completePart || ''),
         pending: incompleteMarkdown.pendingPart || ''
       }
     }
-    // 如果都是完整的，直接处理全部
     return {
       complete: marked(text),
       pending: ''
@@ -88,7 +85,7 @@ const processMarkdown = (text) => {
   } catch (e) {
     console.error('Markdown 处理错误:', e)
     return {
-      complete: text,
+      complete: marked(text),
       pending: ''
     }
   }
@@ -181,28 +178,23 @@ const initWebSocket = () => {
     console.log('收到消息:', event.data)
     
     if (event.data === '生成结束') {
-      // 处理最后一条消息
       const lastMessage = messages.value[messages.value.length - 1]
       if (lastMessage.role === 'ai' && pendingMarkdown.value) {
-        // 处理剩余的待处理内容
         const result = processMarkdown(pendingMarkdown.value)
         lastMessage.content = result.complete
-        pendingMarkdown.value = ''
       }
+      pendingMarkdown.value = ''
       loading.value = false
       return
     }
 
-    // 更新或创建消息
     const lastMessage = messages.value[messages.value.length - 1]
     if (lastMessage?.role === 'ai') {
       // 更新现有消息
       pendingMarkdown.value += event.data
       const result = processMarkdown(pendingMarkdown.value)
-      
-      // 显示已完成的 Markdown 内容和未完成的原始文本
       lastMessage.content = result.complete + 
-        (result.pending ? `<div class="pending-text">${result.pending}</div>` : '')
+        (result.pending ? marked(result.pending) : '')
     } else {
       // 创建新消息
       pendingMarkdown.value = event.data
@@ -210,7 +202,7 @@ const initWebSocket = () => {
       messages.value.push({
         role: 'ai',
         content: result.complete + 
-          (result.pending ? `<div class="pending-text">${result.pending}</div>` : '')
+          (result.pending ? marked(result.pending) : '')
       })
     }
     
@@ -278,7 +270,7 @@ onMounted(() => {
   scrollToBottom()
 })
 
-// 组件卸载时关闭 WebSocket 连接
+// 组件卸载时清理
 onUnmounted(() => {
   if (ws) {
     ws.close()
@@ -368,13 +360,13 @@ onUnmounted(() => {
 /* Markdown 内容样式 */
 .markdown-content {
   line-height: 1.6;
-  transition: all 0.2s ease;
 }
 
 .message-content {
   transition: all 0.3s ease;
 }
 
+/* 保持必要的样式 */
 .markdown-content :deep(pre) {
   background-color: #f6f8fa;
   border-radius: 6px;
@@ -450,5 +442,37 @@ onUnmounted(() => {
   margin-top: 4px;
   font-family: inherit;
   white-space: pre-wrap;
+}
+
+/* 添加原始文本的样式 */
+:deep(.raw-content) {
+  font-family: inherit;
+  white-space: pre-wrap;
+  line-height: 1.6;
+  transition: opacity 0.2s ease;
+}
+
+/* 优化过渡效果 */
+.message-content {
+  position: relative;
+  transition: all 0.3s ease;
+}
+
+:deep(.pending-text) {
+  color: #666;
+  margin-top: 4px;
+  font-family: inherit;
+  white-space: pre-wrap;
+  opacity: 0.8;
+  transition: opacity 0.2s ease;
+}
+
+/* 添加平滑过渡效果 */
+.message {
+  transition: all 0.3s ease-in-out;
+}
+
+.ai-message .message-content {
+  transition: all 0.3s ease-in-out;
 }
 </style> 
