@@ -12,16 +12,7 @@
           >
             <div class="message-content">
               <span v-if="msg.role === 'user'">{{ msg.content }}</span>
-              <div v-else>
-                <!-- 最后一条消息且正在接收时显示缓冲内容 -->
-                <div 
-                  v-if="index === messages.length - 1 && loading" 
-                  v-html="getProcessedContent(msg.content)" 
-                  class="markdown-content"
-                ></div>
-                <!-- 其他消息显示已处理的内容 -->
-                <div v-else v-html="msg.content" class="markdown-content"></div>
-              </div>
+              <div v-else v-html="msg.content" class="markdown-content"></div>
             </div>
           </div>
         </div>
@@ -63,8 +54,7 @@ const messages = ref([
 ])
 const loading = ref(false)
 const messagesRef = ref(null)
-const messageBuffer = ref('')
-const currentMessageParts = ref([])
+const pendingMarkdown = ref('')
 
 // 配置 marked
 marked.setOptions({
@@ -79,11 +69,99 @@ marked.setOptions({
 })
 
 // 处理 markdown 内容的函数
-const getProcessedContent = (content) => {
+const processMarkdown = (text) => {
   try {
-    return marked(content)
+    // 检查是否有未闭合的 Markdown 标记
+    const incompleteMarkdown = checkIncompleteMarkdown(text)
+    if (incompleteMarkdown.isIncomplete) {
+      // 如果有未闭合的标记，只处理完整部分
+      return {
+        complete: marked(incompleteMarkdown.completePart || ''),
+        pending: incompleteMarkdown.pendingPart || ''
+      }
+    }
+    // 如果都是完整的，直接处理全部
+    return {
+      complete: marked(text),
+      pending: ''
+    }
   } catch (e) {
-    return content
+    console.error('Markdown 处理错误:', e)
+    return {
+      complete: text,
+      pending: ''
+    }
+  }
+}
+
+// 检查未完成的 Markdown 标记
+const checkIncompleteMarkdown = (text) => {
+  const patterns = [
+    { start: '```', end: '```' },
+    { start: '`', end: '`' },
+    { start: '**', end: '**' },
+    { start: '*', end: '*' },
+    { start: '__', end: '__' },
+    { start: '_', end: '_' },
+    { start: '[', end: ']' }
+  ]
+
+  let lastCompleteIndex = text.length
+  let isIncomplete = false
+
+  for (const pattern of patterns) {
+    const segments = findIncompleteSegments(text, pattern.start, pattern.end)
+    if (segments.isIncomplete) {
+      isIncomplete = true
+      lastCompleteIndex = Math.min(lastCompleteIndex, segments.lastCompleteIndex)
+    }
+  }
+
+  if (isIncomplete) {
+    return {
+      isIncomplete: true,
+      completePart: text.substring(0, lastCompleteIndex),
+      pendingPart: text.substring(lastCompleteIndex)
+    }
+  }
+
+  return {
+    isIncomplete: false,
+    completePart: text,
+    pendingPart: ''
+  }
+}
+
+// 查找未完成的段落
+const findIncompleteSegments = (text, startMark, endMark) => {
+  const indices = []
+  let pos = 0
+  let isStart = true
+
+  while (pos < text.length) {
+    const index = text.indexOf(isStart ? startMark : endMark, pos)
+    if (index === -1) break
+    
+    indices.push({ index, isStart })
+    pos = index + (isStart ? startMark : endMark).length
+    isStart = !isStart
+  }
+
+  // 如果标记数量为奇数，说明有未闭合的标记
+  if (indices.length % 2 !== 0) {
+    // 返回最后一个完整标记的位置
+    const lastCompleteIndex = indices.length > 1 
+      ? indices[indices.length - 2].index 
+      : 0
+    return {
+      isIncomplete: true,
+      lastCompleteIndex
+    }
+  }
+
+  return {
+    isIncomplete: false,
+    lastCompleteIndex: text.length
   }
 }
 
@@ -103,98 +181,40 @@ const initWebSocket = () => {
     console.log('收到消息:', event.data)
     
     if (event.data === '生成结束') {
-      // 处理最后一条完整消息
+      // 处理最后一条消息
       const lastMessage = messages.value[messages.value.length - 1]
-      if (lastMessage.role === 'ai') {
-        // 合并所有消息部分并进行最终的 markdown 处理
-        const completeContent = currentMessageParts.value.join('')
-        lastMessage.content = getProcessedContent(completeContent)
+      if (lastMessage.role === 'ai' && pendingMarkdown.value) {
+        // 处理剩余的待处理内容
+        const result = processMarkdown(pendingMarkdown.value)
+        lastMessage.content = result.complete
+        pendingMarkdown.value = ''
       }
-      // 清理缓冲区
-      messageBuffer.value = ''
-      currentMessageParts.value = []
       loading.value = false
       return
     }
 
-    // 将新消息添加到缓冲区
-    messageBuffer.value += event.data
-    
-    // 尝试处理完整的句子或 markdown 块
-    const result = processMessageBuffer()
-    
     // 更新或创建消息
     const lastMessage = messages.value[messages.value.length - 1]
     if (lastMessage?.role === 'ai') {
       // 更新现有消息
-      currentMessageParts.value.push(result)
-      lastMessage.content = currentMessageParts.value.join('')
+      pendingMarkdown.value += event.data
+      const result = processMarkdown(pendingMarkdown.value)
+      
+      // 显示已完成的 Markdown 内容和未完成的原始文本
+      lastMessage.content = result.complete + 
+        (result.pending ? `<div class="pending-text">${result.pending}</div>` : '')
     } else {
       // 创建新消息
-      currentMessageParts.value = [result]
+      pendingMarkdown.value = event.data
+      const result = processMarkdown(event.data)
       messages.value.push({
         role: 'ai',
-        content: result
+        content: result.complete + 
+          (result.pending ? `<div class="pending-text">${result.pending}</div>` : '')
       })
     }
     
     scrollToBottom()
-  }
-
-  // 处理消息缓冲区的函数
-  const processMessageBuffer = () => {
-    // 查找完整的句子或 markdown 块的结束位置
-    const sentenceEnd = findCompleteMessageEnd(messageBuffer.value)
-    
-    if (sentenceEnd > -1) {
-      // 提取完整的部分
-      const completePart = messageBuffer.value.substring(0, sentenceEnd + 1)
-      // 保留剩余部分在缓冲区
-      messageBuffer.value = messageBuffer.value.substring(sentenceEnd + 1)
-      return completePart
-    }
-    
-    // 如果没有找到完整的句子，返回当前缓冲区内容
-    const content = messageBuffer.value
-    messageBuffer.value = ''
-    return content
-  }
-
-  // 查找完整消息结束位置的函数
-  const findCompleteMessageEnd = (text) => {
-    // 常见的句子结束标记
-    const sentenceEndings = ['.', '!', '?', '\n']
-    // Markdown 块的结束标记（使用转义字符）
-    const markdownEndings = ['```', '`', '\\*\\*', '\\*', '_']
-    
-    let lastEnd = -1
-    
-    // 检查句子结束
-    for (const ending of sentenceEndings) {
-      const pos = text.lastIndexOf(ending)
-      if (pos > lastEnd) {
-        // 确保这不是一个 markdown 标记的一部分
-        const isPartOfMarkdown = markdownEndings.some(mark => 
-          text.substring(pos - mark.length, pos + mark.length).includes(mark.replace(/\\/g, ''))
-        )
-        if (!isPartOfMarkdown) {
-          lastEnd = pos
-        }
-      }
-    }
-    
-    // 检查 markdown 块的完整性
-    for (const mark of markdownEndings) {
-      // 创建正则表达式时转义特殊字符
-      const regex = new RegExp(mark, 'g')
-      const count = (text.match(regex) || []).length
-      if (count % 2 !== 0) {
-        // 如果标记不配对，返回最后一个完整句子的位置
-        return lastEnd
-      }
-    }
-    
-    return lastEnd
   }
 
   // 连接关闭的回调
@@ -348,7 +368,7 @@ onUnmounted(() => {
 /* Markdown 内容样式 */
 .markdown-content {
   line-height: 1.6;
-  transition: opacity 0.2s ease;
+  transition: all 0.2s ease;
 }
 
 .message-content {
@@ -416,5 +436,19 @@ onUnmounted(() => {
   background: #fff;
   border: 1px solid #e8e8e8;
   border-radius: 8px;
+}
+
+.pending-content {
+  color: #666;
+  margin-top: 4px;
+  font-style: italic;
+}
+
+/* 添加未完成文本的样式 */
+:deep(.pending-text) {
+  color: #666;
+  margin-top: 4px;
+  font-family: inherit;
+  white-space: pre-wrap;
 }
 </style> 
