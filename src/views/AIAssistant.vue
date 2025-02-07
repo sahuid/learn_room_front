@@ -24,13 +24,16 @@
             placeholder="请输入你的问题..."
             :auto-size="{ minRows: 2, maxRows: 5 }"
             @keypress.enter.prevent="handleSend"
+            :disabled="loading"
+            :class="{ 'input-disabled': loading }"
           />
           <a-button 
             type="primary" 
             :loading="loading"
             @click="handleSend"
+            :disabled="loading"
           >
-            发送
+            {{ loading ? '正在回复...' : '发送' }}
           </a-button>
         </div>
       </div>
@@ -177,17 +180,50 @@ const initWebSocket = () => {
   ws.onmessage = (event) => {
     console.log('收到消息:', event.data)
     
-    if (event.data === '生成结束') {
+    // 检查消息是否包含"生成结束"字样
+    if (event.data.includes('生成结束')) {
       const lastMessage = messages.value[messages.value.length - 1]
-      if (lastMessage.role === 'ai' && pendingMarkdown.value) {
-        const result = processMarkdown(pendingMarkdown.value)
-        lastMessage.content = result.complete
+      if (lastMessage?.role === 'ai') {
+        // 提取实际内容（去除"生成结束"字样）
+        const actualContent = event.data.replace(/[,，]?\s*生成结束$/, '')
+        
+        // 如果这条消息本身包含内容（不仅仅是"生成结束"）
+        if (actualContent && actualContent.trim() !== '') {
+          // 将内容添加到现有消息中
+          pendingMarkdown.value += actualContent
+        }
+
+        // 处理完整消息
+        if (pendingMarkdown.value) {
+          const result = processMarkdown(pendingMarkdown.value)
+          lastMessage.content = result.complete
+        }
+      } else {
+        // 如果最后一条不是 AI 消息，创建新消息
+        const actualContent = event.data.replace(/[,，]?\s*生成结束$/, '')
+        if (actualContent && actualContent.trim() !== '') {
+          messages.value.push({
+            role: 'ai',
+            content: marked(actualContent)
+          })
+        }
       }
+      
+      // 重置状态
       pendingMarkdown.value = ''
       loading.value = false
+      
+      // 自动聚焦到输入框
+      nextTick(() => {
+        const textarea = document.querySelector('.chat-input .ant-input')
+        if (textarea) {
+          textarea.focus()
+        }
+      })
       return
     }
 
+    // 处理普通消息
     const lastMessage = messages.value[messages.value.length - 1]
     if (lastMessage?.role === 'ai') {
       // 更新现有消息
@@ -224,26 +260,36 @@ const initWebSocket = () => {
 
 // 发送消息
 const handleSend = async () => {
-  if (!inputMessage.value.trim()) {
+  // 检查消息是否为空或正在加载
+  if (!inputMessage.value.trim() || loading.value) {
     return
   }
 
+  // 检查 WebSocket 连接
   if (!ws || ws.readyState !== WebSocket.OPEN) {
     message.error('未连接到服务器')
     return
   }
 
-  // 添加用户消息
-  messages.value.push({
-    role: 'user',
-    content: inputMessage.value
-  })
+  // 保存消息内容并立即清空输入框
+  const messageContent = inputMessage.value.trim()
+  inputMessage.value = ''
+  
+  // 确保输入框立即更新
+  await nextTick()
 
+  // 设置加载状态
   loading.value = true
+
   try {
+    // 添加用户消息
+    messages.value.push({
+      role: 'user',
+      content: messageContent
+    })
+
     // 发送消息到服务器
-    ws.send(inputMessage.value)
-    inputMessage.value = ''
+    ws.send(messageContent)
     
     // 滚动到底部
     await nextTick()
@@ -251,7 +297,6 @@ const handleSend = async () => {
   } catch (error) {
     console.error('发送消息失败:', error)
     message.error('发送消息失败')
-  } finally {
     loading.value = false
   }
 }
@@ -534,5 +579,25 @@ onUnmounted(() => {
 
 .ai-message .message-content {
   transition: all 0.3s ease-in-out;
+}
+
+/* 禁用状态的输入框样式 */
+.chat-input :deep(.input-disabled) {
+  background-color: #f5f5f5;
+  cursor: not-allowed;
+  opacity: 0.8;
+}
+
+.chat-input :deep(.ant-input[disabled]) {
+  background-color: #f5f5f5;
+  cursor: not-allowed;
+  color: rgba(0, 0, 0, 0.45);
+}
+
+/* 禁用状态的按钮样式 */
+.chat-input :deep(.ant-btn[disabled]) {
+  background-color: #f5f5f5;
+  border-color: #d9d9d9;
+  color: rgba(0, 0, 0, 0.45);
 }
 </style> 
