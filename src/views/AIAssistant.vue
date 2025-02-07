@@ -284,6 +284,9 @@ onUnmounted(() => {
   padding: 24px;
   max-width: 1200px;
   margin: 0 auto;
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
 }
 
 .content-card {
@@ -291,10 +294,10 @@ onUnmounted(() => {
   border-radius: 8px;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
   padding: 24px;
-  height: calc(100vh - 112px);
+  flex: 1;
+  min-height: 0;
   display: flex;
   flex-direction: column;
-
 }
 
 .section-title {
@@ -302,6 +305,7 @@ onUnmounted(() => {
   font-weight: 500;
   color: rgba(0, 0, 0, 0.85);
   margin-bottom: 24px;
+  flex-shrink: 0;
 }
 
 .chat-container {
@@ -309,6 +313,8 @@ onUnmounted(() => {
   display: flex;
   flex-direction: column;
   gap: 24px;
+  min-height: 0;
+  overflow: hidden;
 }
 
 .chat-messages {
@@ -320,10 +326,12 @@ onUnmounted(() => {
   display: flex;
   flex-direction: column;
   gap: 16px;
+  min-height: 200px;
+  max-height: calc(100vh - 250px);
 }
 
 .message {
-  max-width: 80%;
+  max-width: 85%;
   padding: 12px 16px;
   border-radius: 8px;
   word-break: break-word;
@@ -333,33 +341,105 @@ onUnmounted(() => {
   align-self: flex-end;
   background: #1890ff;
   color: #fff;
+  box-shadow: 0 2px 8px rgba(24, 144, 255, 0.15);
 }
 
 .ai-message {
   align-self: flex-start;
   background: #fff;
   border: 1px solid #e8e8e8;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
 }
 
 .chat-input {
   display: flex;
   gap: 16px;
   align-items: flex-start;
+  padding: 16px;
+  background: #fff;
+  border-radius: 8px;
+  box-shadow: 0 -2px 8px rgba(0, 0, 0, 0.05);
+  flex-shrink: 0;
 }
 
 .chat-input :deep(.ant-input) {
   flex: 1;
   border-radius: 4px;
+  resize: none;
 }
 
 .chat-input .ant-btn {
   height: 54px;
   padding: 0 24px;
+  min-width: 100px;
 }
 
-/* Markdown 内容样式 */
+/* Markdown 内容样式优化 */
 .markdown-content {
   line-height: 1.6;
+  font-size: 15px;
+  color: rgba(0, 0, 0, 0.85);
+}
+
+.markdown-content :deep(pre) {
+  background-color: #f6f8fa;
+  border-radius: 6px;
+  padding: 16px;
+  overflow: auto;
+  margin: 12px 0;
+  border: 1px solid #e8e8e8;
+}
+
+.markdown-content :deep(code) {
+  font-family: Consolas, Monaco, 'Andale Mono', 'Ubuntu Mono', monospace;
+  font-size: 14px;
+  background-color: rgba(0, 0, 0, 0.04);
+  padding: 2px 6px;
+  border-radius: 3px;
+}
+
+.markdown-content :deep(pre code) {
+  background-color: transparent;
+  padding: 0;
+}
+
+/* AI 消息样式优化 */
+.ai-message .message-content {
+  padding: 16px;
+  background: #fff;
+  border: 1px solid #e8e8e8;
+  border-radius: 8px;
+  overflow-x: auto;
+  max-width: 100%;
+}
+
+/* 滚动条样式优化 */
+.chat-messages::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+.chat-messages::-webkit-scrollbar-thumb {
+  background: #ccc;
+  border-radius: 3px;
+}
+
+.chat-messages::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+/* 代码块滚动条样式 */
+.markdown-content :deep(pre)::-webkit-scrollbar {
+  height: 6px;
+}
+
+.markdown-content :deep(pre)::-webkit-scrollbar-thumb {
+  background: #ccc;
+  border-radius: 3px;
+}
+
+.markdown-content :deep(pre)::-webkit-scrollbar-track {
+  background: transparent;
 }
 
 .message-content {
@@ -367,18 +447,6 @@ onUnmounted(() => {
 }
 
 /* 保持必要的样式 */
-.markdown-content :deep(pre) {
-  background-color: #f6f8fa;
-  border-radius: 6px;
-  padding: 16px;
-  overflow: auto;
-}
-
-.markdown-content :deep(code) {
-  font-family: Consolas, Monaco, 'Andale Mono', 'Ubuntu Mono', monospace;
-  font-size: 14px;
-}
-
 .markdown-content :deep(p) {
   margin: 8px 0;
 }
@@ -420,14 +488,6 @@ onUnmounted(() => {
 
 .markdown-content :deep(th) {
   background-color: #f6f8fa;
-}
-
-/* 调整 AI 消息样式以适应 Markdown 内容 */
-.ai-message .message-content {
-  padding: 16px;
-  background: #fff;
-  border: 1px solid #e8e8e8;
-  border-radius: 8px;
 }
 
 .pending-content {
