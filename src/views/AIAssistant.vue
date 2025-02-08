@@ -3,6 +3,17 @@
     <div class="content-card">
       <h2 class="section-title">AI 助手</h2>
       <div class="chat-container">
+        <!-- 加载更多按钮 -->
+        <div v-if="hasMore" class="load-more">
+          <a-button 
+            type="link" 
+            :loading="loadingHistory"
+            @click="loadMoreHistory"
+          >
+            加载更多
+          </a-button>
+        </div>
+
         <!-- 聊天记录 -->
         <div class="chat-messages" ref="messagesRef">
           <div 
@@ -47,17 +58,25 @@ import { message } from 'ant-design-vue'
 import { marked } from 'marked'
 import 'highlight.js/styles/github.css'
 import hljs from 'highlight.js'
+import { onBeforeRouteLeave } from 'vue-router'
+import { chatApi } from '@/api/chat'
 
 // WebSocket 实例
 let ws = null
 
 const inputMessage = ref('')
-const messages = ref([
-  { role: 'ai', content: '你好！我是 AI 助手，有什么我可以帮你的吗？' }
-])
+const messages = ref([])
 const loading = ref(false)
 const messagesRef = ref(null)
 const pendingMarkdown = ref('')
+
+// 添加一个状态来跟踪是否是主动关闭
+const isActivelyClosing = ref(false)
+
+// 添加新的状态
+const loadingHistory = ref(false)
+const hasMore = ref(true)
+const currentCursor = ref(null)
 
 // 配置 marked
 marked.setOptions({
@@ -165,6 +184,67 @@ const findIncompleteSegments = (text, startMark, endMark) => {
   }
 }
 
+// 获取历史记录
+const fetchHistory = async (cursor = null) => {
+  const currentUser = JSON.parse(localStorage.getItem('currentUser'))
+  if (!currentUser) return
+  
+  loadingHistory.value = true
+  try {
+    const res = await chatApi.getHistory({
+      userId: currentUser.id,
+      cursor: cursor ? new Date(cursor).getTime() : null,
+      size: 10
+    })
+    
+    if (res.code === 200 && Array.isArray(res.value)) {
+      const historyMessages = res.value.map(item => ({
+        role: item.role === 1 ? 'user' : 'ai',
+        content: item.role === 0 ? marked(item.content) : item.content,
+        createTime: item.createTime
+      }))
+      
+      // 对消息按创建时间排序（从早到晚）
+      historyMessages.sort((a, b) => new Date(a.createTime) - new Date(b.createTime))
+      
+      // 如果是第一次加载，直接设置消息
+      if (!cursor) {
+        messages.value = historyMessages
+        if (historyMessages.length === 0) {
+          // 如果没有历史记录，显示欢迎消息
+          messages.value = [{ 
+            role: 'ai', 
+            content: '你好！我是 AI 助手，有什么我可以帮你的吗？' 
+          }]
+        }
+      } else {
+        // 如果是加载更多，将新消息添加到开头，并保持时间顺序
+        messages.value = [...historyMessages, ...messages.value].sort(
+          (a, b) => new Date(a.createTime) - new Date(b.createTime)
+        )
+      }
+      
+      // 更新游标和是否有更多数据
+      hasMore.value = historyMessages.length === 10
+      if (historyMessages.length > 0) {
+        // 使用最早的消息时间作为下一个游标
+        currentCursor.value = historyMessages[0].createTime
+      }
+    }
+  } catch (error) {
+    console.error('获取历史记录失败:', error)
+    message.error('获取历史记录失败')
+  } finally {
+    loadingHistory.value = false
+  }
+}
+
+// 加载更多历史记录
+const loadMoreHistory = () => {
+  if (loadingHistory.value) return
+  fetchHistory(currentCursor.value)
+}
+
 // 初始化 WebSocket 连接
 const initWebSocket = () => {
   // 创建 WebSocket 连接
@@ -248,7 +328,10 @@ const initWebSocket = () => {
   // 连接关闭的回调
   ws.onclose = () => {
     console.log('WebSocket 连接已关闭')
-    message.warning('与 AI 助手的连接已断开')
+    // 只有在非主动关闭的情况下才显示提示
+    if (!isActivelyClosing.value) {
+      message.warning('与 AI 助手的连接已断开')
+    }
   }
 
   // 发生错误时的回调
@@ -313,14 +396,27 @@ onMounted(() => {
   initWebSocket()
   // 初始滚动到底部
   scrollToBottom()
+  // 获取历史记录
+  fetchHistory()
 })
 
 // 组件卸载时清理
 onUnmounted(() => {
   if (ws) {
+    isActivelyClosing.value = true  // 标记为主动关闭
     ws.close()
     ws = null
   }
+})
+
+// 添加路由离开的处理
+onBeforeRouteLeave((to, from, next) => {
+  if (ws) {
+    isActivelyClosing.value = true  // 标记为主动关闭
+    ws.close()
+    ws = null
+  }
+  next()
 })
 </script>
 
@@ -599,5 +695,21 @@ onUnmounted(() => {
   background-color: #f5f5f5;
   border-color: #d9d9d9;
   color: rgba(0, 0, 0, 0.45);
+}
+
+/* 加载更多按钮样式 */
+.load-more {
+  text-align: center;
+  padding: 8px 0;
+  background: transparent;
+}
+
+.load-more :deep(.ant-btn) {
+  font-size: 14px;
+  color: #8c8c8c;
+}
+
+.load-more :deep(.ant-btn:hover) {
+  color: #1890ff;
 }
 </style> 
