@@ -3,19 +3,17 @@
     <div class="content-card">
       <h2 class="section-title">AI 助手</h2>
       <div class="chat-container">
-        <!-- 加载更多按钮 -->
-        <div v-if="hasMore" class="load-more">
-          <a-button 
-            type="link" 
-            :loading="loadingHistory"
-            @click="loadMoreHistory"
-          >
-            加载更多
-          </a-button>
-        </div>
-
         <!-- 聊天记录 -->
-        <div class="chat-messages" ref="messagesRef">
+        <div 
+          class="chat-messages" 
+          ref="messagesRef"
+          @scroll="handleScroll"
+        >
+          <!-- 加载提示 -->
+          <div v-if="loadingHistory" class="loading-indicator">
+            <a-spin size="small" />
+            <span>加载中...</span>
+          </div>
           <div 
             v-for="(msg, index) in messages" 
             :key="index"
@@ -77,6 +75,7 @@ const isActivelyClosing = ref(false)
 const loadingHistory = ref(false)
 const hasMore = ref(true)
 const currentCursor = ref(null)
+const scrollPosition = ref(0)
 
 // 配置 marked
 marked.setOptions({
@@ -239,10 +238,35 @@ const fetchHistory = async (cursor = null) => {
   }
 }
 
-// 加载更多历史记录
-const loadMoreHistory = () => {
-  if (loadingHistory.value) return
-  fetchHistory(currentCursor.value)
+// 处理滚动事件
+const handleScroll = async (e) => {
+  if (loadingHistory.value || !hasMore.value) return
+  
+  const { scrollTop } = e.target
+  // 当滚动到顶部时（考虑一个小的阈值）
+  if (scrollTop < 50) {
+    // 记录当前滚动位置
+    scrollPosition.value = e.target.scrollHeight
+    await loadMoreHistory()
+  }
+}
+
+// 修改加载更多历史记录函数
+const loadMoreHistory = async () => {
+  if (loadingHistory.value || !hasMore.value) return
+  
+  try {
+    await fetchHistory(currentCursor.value)
+    
+    // 在数据加载完成后，恢复滚动位置
+    await nextTick()
+    if (messagesRef.value && scrollPosition.value) {
+      const newScrollTop = messagesRef.value.scrollHeight - scrollPosition.value
+      messagesRef.value.scrollTop = newScrollTop
+    }
+  } catch (error) {
+    console.error('加载更多历史记录失败:', error)
+  }
 }
 
 // 初始化 WebSocket 连接
@@ -394,10 +418,16 @@ const scrollToBottom = () => {
 onMounted(() => {
   // 初始化 WebSocket 连接
   initWebSocket()
-  // 初始滚动到底部
-  scrollToBottom()
-  // 获取历史记录
-  fetchHistory()
+  // 初始化时先设置滚动位置到底部，然后再加载历史记录
+  if (messagesRef.value) {
+    messagesRef.value.scrollTop = messagesRef.value.scrollHeight
+  }
+  fetchHistory().then(() => {
+    // 加载完成后再次确保滚动到底部
+    if (messagesRef.value) {
+      messagesRef.value.scrollTop = messagesRef.value.scrollHeight
+    }
+  })
 })
 
 // 组件卸载时清理
@@ -697,19 +727,18 @@ onBeforeRouteLeave((to, from, next) => {
   color: rgba(0, 0, 0, 0.45);
 }
 
-/* 加载更多按钮样式 */
-.load-more {
-  text-align: center;
-  padding: 8px 0;
-  background: transparent;
-}
-
-.load-more :deep(.ant-btn) {
-  font-size: 14px;
+/* 加载提示样式 */
+.loading-indicator {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 12px;
+  gap: 8px;
   color: #8c8c8c;
+  font-size: 14px;
 }
 
-.load-more :deep(.ant-btn:hover) {
-  color: #1890ff;
+.loading-indicator :deep(.ant-spin) {
+  margin-right: 8px;
 }
 </style> 
