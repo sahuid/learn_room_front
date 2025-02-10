@@ -1,7 +1,18 @@
 <template>
   <div class="page-container">
     <div class="content-card">
-      <h2 class="section-title">AI 助手</h2>
+      <div class="section-header">
+        <h2 class="section-title">AI 助手</h2>
+        <a-tooltip title="清空聊天记录">
+          <a-button 
+            type="text" 
+            :loading="clearingHistory"
+            @click="handleClearHistory"
+          >
+            <template #icon><delete-outlined /></template>
+          </a-button>
+        </a-tooltip>
+      </div>
       <div class="chat-container">
         <!-- 聊天记录 -->
         <div 
@@ -58,6 +69,7 @@ import 'highlight.js/styles/github.css'
 import hljs from 'highlight.js'
 import { onBeforeRouteLeave } from 'vue-router'
 import { chatApi } from '@/api/chat'
+import { DeleteOutlined } from '@ant-design/icons-vue'
 
 // WebSocket 实例
 let ws = null
@@ -76,6 +88,9 @@ const loadingHistory = ref(false)
 const hasMore = ref(true)
 const currentCursor = ref(null)
 const scrollPosition = ref(0)
+
+// 添加清空历史记录的状态
+const clearingHistory = ref(false)
 
 // 配置 marked
 marked.setOptions({
@@ -415,6 +430,36 @@ const scrollToBottom = () => {
   }
 }
 
+// 清空聊天记录
+const handleClearHistory = async () => {
+  try {
+    const currentUser = JSON.parse(localStorage.getItem('currentUser'))
+    if (!currentUser) return
+
+    clearingHistory.value = true
+    const res = await chatApi.clearHistory(currentUser.id)
+    
+    if (res.code === 200) {
+      message.success('聊天记录已清空')
+      // 重置消息列表为欢迎消息
+      messages.value = [{ 
+        role: 'ai', 
+        content: '你好！我是 AI 助手，有什么我可以帮你的吗？' 
+      }]
+      // 重置相关状态
+      hasMore.value = false
+      currentCursor.value = null
+    } else {
+      message.error(res.msg || '清空聊天记录失败')
+    }
+  } catch (error) {
+    console.error('清空聊天记录失败:', error)
+    message.error('清空聊天记录失败')
+  } finally {
+    clearingHistory.value = false
+  }
+}
+
 onMounted(() => {
   // 初始化 WebSocket 连接
   initWebSocket()
@@ -471,12 +516,29 @@ onBeforeRouteLeave((to, from, next) => {
   flex-direction: column;
 }
 
-.section-title {
+.section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 24px;
+}
+
+.section-header :deep(.ant-btn) {
+  padding: 4px 8px;
+  color: #8c8c8c;
+  transition: all 0.3s;
+}
+
+.section-header :deep(.ant-btn:hover) {
+  color: #ff4d4f;
+  background: rgba(255, 77, 79, 0.1);
+}
+
+.section-header .section-title {
   font-size: 20px;
   font-weight: 500;
   color: rgba(0, 0, 0, 0.85);
-  margin-bottom: 24px;
-  flex-shrink: 0;
+  margin: 0;
 }
 
 .chat-container {
