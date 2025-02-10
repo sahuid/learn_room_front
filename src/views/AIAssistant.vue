@@ -185,13 +185,13 @@ const findIncompleteSegments = (text, startMark, endMark) => {
 
 // 获取历史记录
 const fetchHistory = async (cursor = null) => {
-  const currentUser = JSON.parse(localStorage.getItem('currentUser'))
-  if (!currentUser) return
+  const userInfo = JSON.parse(localStorage.getItem('userInfo'))
+  if (!userInfo) return
   
   loadingHistory.value = true
   try {
     const res = await chatApi.getHistory({
-      userId: currentUser.id,
+      userId: userInfo.id,
       cursor: cursor ? new Date(cursor).getTime() : null,
       size: 10
     })

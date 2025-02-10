@@ -372,8 +372,8 @@ const viewPagination = ref({
 const fetchCollectedQuestions = async () => {
   collectLoading.value = true
   try {
-    const currentUser = localStorage.getItem('currentUser')
-    if (!currentUser) {
+    const userInfo = localStorage.getItem('userInfo')
+    if (!userInfo) {
       message.warning('请先登录')
       return
     }
@@ -398,8 +398,8 @@ const fetchCollectedQuestions = async () => {
 const fetchViewedQuestions = async () => {
   viewLoading.value = true
   try {
-    const currentUser = localStorage.getItem('currentUser')
-    if (!currentUser) {
+    const userInfo = localStorage.getItem('userInfo')
+    if (!userInfo) {
       message.warning('请先登录')
       return
     }
@@ -407,7 +407,7 @@ const fetchViewedQuestions = async () => {
     const res = await questionApi.getViewHistory({
       page: viewPagination.value.current,
       pageSize: viewPagination.value.pageSize,
-      userId: JSON.parse(currentUser).id
+      userId: JSON.parse(userInfo).id
     })
     if (res.code === 200) {
       viewedQuestions.value = res.value.data || []

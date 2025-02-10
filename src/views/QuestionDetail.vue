@@ -277,8 +277,8 @@ const fetchQuestionDetail = async () => {
       question.value = res.value || {}
       
       // 如果用户已登录，获取点赞和收藏状态
-      const currentUser = localStorage.getItem('currentUser')
-      if (currentUser) {
+      const userInfo = localStorage.getItem('userInfo')
+      if (userInfo) {
         const hasLikeRes = await questionApi.hasLike({
           id: question.value.id
         })
@@ -325,8 +325,8 @@ const fetchQuestionDetail = async () => {
 const handleLike = async () => {
   try {
     // 检查是否登录
-    const currentUser = localStorage.getItem('currentUser')
-    if (!currentUser) {
+    const userInfo = localStorage.getItem('userInfo')
+    if (!userInfo) {
       message.warning('请先登录')
       router.push('/login')
       return
@@ -360,8 +360,8 @@ const handleLike = async () => {
 const handleCollect = async () => {
   try {
     // 检查是否登录
-    const currentUser = localStorage.getItem('currentUser')
-    if (!currentUser) {
+    const userInfo = localStorage.getItem('userInfo')
+    if (!userInfo) {
       message.warning('请先登录')
       router.push('/login')
       return
@@ -399,8 +399,8 @@ const handleCollect = async () => {
 const handleViewAnswer = async () => {
   try {
     // 检查是否登录
-    const currentUser = localStorage.getItem('currentUser')
-    if (!currentUser) {
+    const userInfo = localStorage.getItem('userInfo')
+    if (!userInfo) {
       message.warning('请先登录')
       router.push('/login')
       return
@@ -409,7 +409,7 @@ const handleViewAnswer = async () => {
     viewLoading.value = true
     const res = await questionApi.increaseView({
       questionId: question.value.id,
-      userId: JSON.parse(currentUser).id
+      userId: JSON.parse(userInfo).id
     })
     
     if (res.code === 200) {
@@ -492,13 +492,13 @@ const handleSubmitReply = async () => {
     return
   }
 
-  const currentUser = localStorage.getItem('currentUser')
-  if (!currentUser) {
+  const userInfo = localStorage.getItem('userInfo')
+  if (!userInfo) {
     message.warning('请先登录')
     return
   }
 
-  const userId = JSON.parse(currentUser).id
+  const userId = JSON.parse(userInfo).id
   
   try {
     submitting.value = true

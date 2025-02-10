@@ -111,14 +111,16 @@ router.beforeEach((to, from, next) => {
     return
   }
 
+  const tokenValue = localStorage.getItem('tokenValue')
   const userInfo = localStorage.getItem('userInfo')
-  const currentUser = localStorage.getItem('currentUser')
-  const userRole = currentUser ? JSON.parse(currentUser).userRole : null
+  const userRole = userInfo ? JSON.parse(userInfo).userRole : null
 
   // 检查是否需要认证且未登录
-  if (to.meta.requiresAuth && !userInfo) {
+  if (to.meta.requiresAuth && !tokenValue) {
     // 清除可能存在的过期数据
-    localStorage.removeItem('currentUser')
+    localStorage.removeItem('tokenName')
+    localStorage.removeItem('tokenValue')
+    localStorage.removeItem('userInfo')
     next('/login')  // 未登录跳转到登录页
   } 
   // 检查是否需要管理员权限

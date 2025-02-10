@@ -117,11 +117,13 @@ const handleFinish = async (values) => {
     const res = await userApi.login(values)
     if (res.code === 200) {
       message.success(res.msg || '登录成功！')
-      localStorage.setItem('userInfo', JSON.stringify(res.data))
+      const tokenInfo = res.value
+      localStorage.setItem('tokenName', tokenInfo.tokenName)
+      localStorage.setItem('tokenValue', tokenInfo.tokenValue)
       try {
-        const userRes = await userApi.getCurrentUser()
+        const userRes = await userApi.getuserInfo()
         if (userRes.code === 200) {
-          localStorage.setItem('currentUser', JSON.stringify(userRes.value))
+          localStorage.setItem('userInfo', JSON.stringify(userRes.value))
           router.push('/home')
         } else {
           message.error(userRes.msg || '获取用户信息失败')

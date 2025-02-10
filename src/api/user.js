@@ -13,7 +13,7 @@ export const userApi = {
     })
   },
   // 获取当前登录用户信息接口
-  getCurrentUser() {
+  getuserInfo() {
     return request({
       url: '/user/me',
       method: 'get'
@@ -51,7 +51,7 @@ export const userApi = {
       params: {
         page: params.page || 1,
         pageSize: params.pageSize || 10,
-        userId: JSON.parse(localStorage.getItem('currentUser')).id
+        userId: JSON.parse(localStorage.getItem('userInfo')).id
       }
     })
   },

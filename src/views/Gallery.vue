@@ -35,11 +35,11 @@ const userInfo = ref({
 
 const fetchUserInfo = async () => {
   try {
-    const res = await userApi.getCurrentUser()
+    const res = await userApi.getuserInfo()
     if (res.code === 200) {
       userInfo.value = res.data
       // 将用户信息保存到 localStorage
-      localStorage.setItem('currentUser', JSON.stringify(res.data))
+      localStorage.setItem('userInfo', JSON.stringify(res.data))
     } else {
       message.error(res.msg || '获取用户信息失败')
       // 如果获取用户信息失败，可能是未登录，跳转到登录页

@@ -47,7 +47,7 @@ export const questionApi = {
       data: {
         targetId: params.id,
         targetType: 0,
-        userId: JSON.parse(localStorage.getItem('currentUser')).id
+        userId: JSON.parse(localStorage.getItem('userInfo')).id
       }
     })
   },
@@ -59,7 +59,7 @@ export const questionApi = {
       data: {
         targetId: params.id,
         targetType: 0,
-        userId: JSON.parse(localStorage.getItem('currentUser')).id
+        userId: JSON.parse(localStorage.getItem('userInfo')).id
       }
     })
   },
@@ -81,7 +81,7 @@ export const questionApi = {
       method: 'post',
       data: {
         questionId: params.id,
-        userId: JSON.parse(localStorage.getItem('currentUser')).id
+        userId: JSON.parse(localStorage.getItem('userInfo')).id
       }
     })
   },
@@ -92,7 +92,7 @@ export const questionApi = {
       method: 'post',
       data: {
         questionId: params.id,
-        userId: JSON.parse(localStorage.getItem('currentUser')).id
+        userId: JSON.parse(localStorage.getItem('userInfo')).id
       }
     })
   },
@@ -104,7 +104,7 @@ export const questionApi = {
       params: {
         targetId: params.id,
         targetType: 0,
-        userId: JSON.parse(localStorage.getItem('currentUser')).id
+        userId: JSON.parse(localStorage.getItem('userInfo')).id
       }
     })
   },
@@ -148,7 +148,7 @@ export const questionApi = {
       method: 'get',
       params: {
         questionId: params.id,
-        userId: JSON.parse(localStorage.getItem('currentUser')).id
+        userId: JSON.parse(localStorage.getItem('userInfo')).id
       }
     })
   },
@@ -173,7 +173,7 @@ export const questionApi = {
         questionId: data.questionId,
         content: data.content,
         parentId: data.parentId,
-        userId: JSON.parse(localStorage.getItem('currentUser')).id
+        userId: JSON.parse(localStorage.getItem('userInfo')).id
       }
     })
   }

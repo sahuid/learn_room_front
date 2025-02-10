@@ -14,6 +14,15 @@ const request = axios.create({
 // 请求拦截器
 request.interceptors.request.use(
   config => {
+    // 从 localStorage 获取 token 信息
+    const tokenName = localStorage.getItem('tokenName')
+    const tokenValue = localStorage.getItem('tokenValue')
+    
+    // 如果有 token，添加到请求头
+    if (tokenName && tokenValue) {
+      config.headers[tokenName] = tokenValue
+    }
+    
     return config
   },
   error => {
@@ -27,8 +36,10 @@ request.interceptors.response.use(
     // 统一处理 401 未登录情况
     const responseData = response.data
     if (responseData.code === 401) {
+      // 清除 token 信息
+      localStorage.removeItem('tokenName')
+      localStorage.removeItem('tokenValue')
       localStorage.removeItem('userInfo')
-      localStorage.removeItem('currentUser')
       
       message.error(responseData.msg || '登录已过期，请重新登录')
       

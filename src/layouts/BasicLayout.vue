@@ -149,7 +149,7 @@ const fetchUserInfo = async () => {
       userInfo.value = cachedUser
       return
     }
-    const res = await userApi.getCurrentUser()
+    const res = await userApi.getuserInfo()
     if (res.code === 200) {
       const userData = res.value || {}
       userInfo.value = {
