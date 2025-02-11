@@ -1,14 +1,33 @@
 <template>
   <div class="profile-container">
+    <input
+      type="file"
+      ref="fileInput"
+      style="display: none"
+      accept="image/*"
+      @change="handleFileChange"
+    />
     <a-row :gutter="24">
       <!-- 左侧个人信息卡片 -->
       <a-col :span="8">
         <a-card class="profile-card user-info-card">
           <div class="user-info-header">
+            <div class="edit-button">
+              <a-tooltip title="编辑个人信息">
+                <a-button type="link" @click="showEditModal">
+                  <EditOutlined />
+                </a-button>
+              </a-tooltip>
+            </div>
             <div class="user-avatar-wrapper">
-              <a-avatar :size="120">
-                {{ userInfo.userName?.charAt(0) }}
-              </a-avatar>
+              <div class="avatar-container">
+                <a-avatar 
+                  :size="120" 
+                  :src="userInfo.avatarUrl"
+                >
+                  {{ userInfo.userName?.charAt(0) }}
+                </a-avatar>
+              </div>
             </div>
           </div>
           <div class="user-basic-info">
@@ -139,6 +158,43 @@
         </a-card>
       </a-col>
     </a-row>
+
+    <!-- 添加编辑模态框 -->
+    <a-modal
+      v-model:visible="editModalVisible"
+      title="编辑个人信息"
+      @ok="handleUpdate"
+      @cancel="editModalVisible = false"
+      :confirm-loading="updating"
+    >
+      <a-form layout="vertical">
+        <a-form-item label="头像">
+          <div class="avatar-uploader">
+            <div class="avatar-upload" @click="triggerFileInput">
+              <a-tooltip title="点击修改头像">
+                <div class="avatar-wrapper">
+                  <a-avatar :size="128" :src="editForm.picture">
+                    {{ editForm.userName?.charAt(0) }}
+                  </a-avatar>
+                  <div class="avatar-hover-mask">
+                    <camera-outlined />
+                    <span>更换头像</span>
+                  </div>
+                </div>
+              </a-tooltip>
+            </div>
+          </div>
+        </a-form-item>
+
+        <a-form-item label="用户名">
+          <a-input v-model:value="editForm.userName" />
+        </a-form-item>
+        
+        <a-form-item label="手机号">
+          <a-input v-model:value="editForm.userPhone" />
+        </a-form-item>
+      </a-form>
+    </a-modal>
   </div>
 </template>
 
@@ -149,7 +205,7 @@ export default {
 </script>
 
 <script setup>
-import { ref, onMounted, onUnmounted } from 'vue'
+import { ref, onMounted, onUnmounted, reactive } from 'vue'
 import { userStorage } from '@/utils/user'
 import { userApi } from '@/api/user'
 import { questionApi } from '@/api/question'
@@ -163,10 +219,13 @@ import { HeatmapChart } from 'echarts/charts'
 import { CanvasRenderer } from 'echarts/renderers'
 import dayjs from 'dayjs'
 import { 
-  EyeOutlined 
+  EyeOutlined,
+  EditOutlined,
+  CameraOutlined
 } from '@ant-design/icons-vue'
 import { message, Empty } from 'ant-design-vue'
 import { useRouter } from 'vue-router'
+import { fileApi } from '@/api/file'
 
 // 注册必需的组件
 echarts.use([
@@ -183,7 +242,8 @@ const userInfo = ref({
   userAccount: '',
   userRole: 0,
   createTime: '',
-  updateTime: ''
+  updateTime: '',
+  avatarUrl: ''
 })
 
 // 格式化日期时间
@@ -440,6 +500,104 @@ const handleTabChange = (key) => {
 
 const signStreak = ref(0) // 添加连续签到天数
 
+// 添加文件输入框的引用
+const fileInput = ref(null)
+
+// 添加新的响应式数据
+const editModalVisible = ref(false)
+const updating = ref(false)
+const editForm = reactive({
+  userName: '',
+  userPhone: '',
+  picture: ''
+})
+
+// 显示编辑模态框
+const showEditModal = () => {
+  Object.assign(editForm, {
+    userName: userInfo.value.userName,
+    userPhone: userInfo.value.userPhone,
+    picture: userInfo.value.avatarUrl
+  })
+  editModalVisible.value = true
+}
+
+// 添加触发文件选择的方法
+const triggerFileInput = () => {
+  fileInput.value.click()
+}
+
+// 修改文件选择处理函数，添加错误处理
+const handleFileChange = async (e) => {
+  const file = e.target.files[0]
+  if (!file) return
+
+  try {
+    // 验证文件类型
+    if (!file.type.startsWith('image/')) {
+      message.error('请选择图片文件')
+      return
+    }
+
+    // 验证文件大小（限制为2MB）
+    if (file.size > 2 * 1024 * 1024) {
+      message.error('图片大小不能超过2MB')
+      return
+    }
+
+    const res = await fileApi.upload(file)
+    if (res.code === 200) {
+      editForm.picture = res.value
+      userInfo.value.avatarUrl = res.value
+      message.success('头像上传成功')
+      // 更新本地存储
+      const currentUser = JSON.parse(localStorage.getItem('userInfo') || '{}')
+      currentUser.avatarUrl = res.value
+      localStorage.setItem('userInfo', JSON.stringify(currentUser))
+    } else {
+      message.error(res.msg || '头像上传失败')
+    }
+  } catch (error) {
+    console.error('上传失败:', error)
+    message.error(error.response?.data?.msg || '头像上传失败')
+  } finally {
+    // 清空文件输入框，允许重复选择同一文件
+    e.target.value = ''
+  }
+}
+
+// 修改更新处理函数，添加错误处理
+const handleUpdate = async () => {
+  try {
+    updating.value = true
+    const params = {
+      id: userInfo.value.id,
+      userName: editForm.userName,
+      userPhone: editForm.userPhone,
+      picture: editForm.picture
+    }
+    
+    const res = await userApi.updateUserInfo(params)
+    if (res.code === 200) {
+      message.success('更新成功')
+      // 更新本地信息
+      Object.assign(userInfo.value, params)
+      // 更新本地存储
+      const currentUser = JSON.parse(localStorage.getItem('userInfo') || '{}')
+      Object.assign(currentUser, params)
+      localStorage.setItem('userInfo', JSON.stringify(currentUser))
+      editModalVisible.value = false
+    } else {
+      message.error(res.msg || '更新失败')
+    }
+  } catch (error) {
+    console.error('更新失败:', error)
+    message.error(error.response?.data?.msg || '更新失败')
+  } finally {
+    updating.value = false
+  }
+}
+
 onMounted(() => {
   const user = userStorage.getUser()
   if (user) {
@@ -488,9 +646,59 @@ onUnmounted(() => {
   margin: 20px 0;
 }
 
+.avatar-container {
+  position: relative;
+  cursor: pointer;
+  border-radius: 50%;
+  overflow: hidden;
+  width: 120px;
+  height: 120px;
+}
+
+.avatar-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  color: white;
+  opacity: 0;
+  transition: opacity 0.3s;
+  cursor: pointer;
+  z-index: 1;
+}
+
+.avatar-container:hover .avatar-overlay {
+  opacity: 1;
+}
+
+.avatar-overlay .anticon {
+  font-size: 24px;
+  margin-bottom: 8px;
+}
+
+.user-avatar-wrapper {
+  position: relative;
+  width: 120px;
+  height: 120px;
+  margin: 0 auto;
+  border: 4px solid rgba(255, 255, 255, 0.8);
+  border-radius: 50%;
+  overflow: hidden;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
 :deep(.ant-avatar) {
-  background-color: #1890ff;
-  font-size: 48px;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
 }
 
 .user-basic-info {
@@ -622,15 +830,6 @@ onUnmounted(() => {
   padding: 24px 0;
   background: linear-gradient(135deg, #1890ff 0%, #36cfc9 100%);
   border-radius: 8px 8px 0 0;
-}
-
-.user-avatar-wrapper {
-  position: relative;
-  width: 120px;
-  height: 120px;
-  margin: 0 auto;
-  border: 4px solid rgba(255, 255, 255, 0.8);
-  border-radius: 50%;
 }
 
 .user-stats {
@@ -819,5 +1018,76 @@ onUnmounted(() => {
 
 .view-count .anticon {
   font-size: 14px;
+}
+
+/* 添加编辑按钮样式 */
+.edit-button {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  z-index: 2;
+}
+
+.edit-button :deep(.ant-btn) {
+  color: rgba(0, 0, 0, 0.45);
+}
+
+.edit-button :deep(.ant-btn:hover) {
+  color: #1890ff;
+}
+
+/* 添加头像上传样式 */
+.avatar-uploader {
+  text-align: center;
+  margin-bottom: 24px;
+}
+
+.avatar-uploader :deep(.ant-upload) {
+  cursor: pointer;
+  transition: all 0.3s;
+}
+
+.avatar-uploader :deep(.ant-upload:hover) {
+  transform: scale(1.05);
+}
+
+/* 添加上传提示样式 */
+.avatar-wrapper {
+  position: relative;
+  cursor: pointer;
+  border-radius: 50%;
+  overflow: hidden;
+  width: 128px;
+  height: 128px;
+  display: inline-block;
+}
+
+.avatar-hover-mask {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  color: white;
+  opacity: 0;
+  transition: opacity 0.3s;
+}
+
+.avatar-wrapper:hover .avatar-hover-mask {
+  opacity: 1;
+}
+
+.avatar-hover-mask .anticon {
+  font-size: 24px;
+  margin-bottom: 8px;
+}
+
+.avatar-upload {
+  text-align: center;
 }
 </style> 

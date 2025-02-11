@@ -73,5 +73,18 @@ export const userApi = {
         userPassword: data.password
       }
     })
+  },
+  // 更新用户信息
+  updateUserInfo(data) {
+    return request({
+      url: '/user/update',
+      method: 'post',
+      data: {
+        id: data.id,
+        userName: data.userName,
+        userPhone: data.userPhone,
+        picture: data.picture
+      }
+    })
   }
 } 
