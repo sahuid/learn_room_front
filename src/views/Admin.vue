@@ -217,6 +217,57 @@
         </a-form-item>
       </a-form>
     </a-modal>
+
+    <!-- 编辑题库的模态框 -->
+    <a-modal
+      v-model:visible="editBankModalVisible"
+      title="编辑题库"
+      @ok="handleUpdateBank"
+      :confirm-loading="updatingBank"
+      okText="保存"
+      cancelText="取消"
+    >
+      <a-form :model="editBankForm" layout="vertical">
+        <a-form-item label="题库名称" required>
+          <a-input v-model:value="editBankForm.title" placeholder="请输入题库名称" />
+        </a-form-item>
+        
+        <a-form-item label="题库描述">
+          <a-textarea 
+            v-model:value="editBankForm.description" 
+            placeholder="请输入题库描述"
+            :rows="4" 
+          />
+        </a-form-item>
+        
+        <a-form-item label="题库图片">
+          <div class="upload-wrapper">
+            <div class="upload-container" @click="triggerEditFileInput">
+              <div v-if="editBankForm.picture" class="preview-container">
+                <img :src="editBankForm.picture" alt="题库图片" />
+                <div class="upload-mask">
+                  <camera-outlined />
+                  <span>点击更换图片</span>
+                </div>
+              </div>
+              <div v-else class="upload-placeholder">
+                <plus-outlined />
+                <div class="upload-text">点击上传图片</div>
+              </div>
+            </div>
+          </div>
+        </a-form-item>
+      </a-form>
+    </a-modal>
+
+    <!-- 添加编辑用的文件输入框 -->
+    <input
+      type="file"
+      ref="editFileInput"
+      style="display: none"
+      accept="image/*"
+      @change="handleEditFileChange"
+    />
   </div>
 </template>
 
@@ -716,7 +767,7 @@ const handleViewBank = (record) => {
 
 // 编辑题库
 const handleEditBank = (record) => {
-  router.push(`/home/bank/edit/${record.id}`)
+  showEditBankModal(record)
 }
 
 // 删除题库
@@ -817,6 +868,87 @@ const handleAddBank = async () => {
     message.error('添加题库失败')
   } finally {
     addingBank.value = false
+  }
+}
+
+// 添加编辑相关的响应式数据
+const editBankModalVisible = ref(false)
+const updatingBank = ref(false)
+const editFileInput = ref(null)
+const editBankForm = reactive({
+  id: null,
+  title: '',
+  description: '',
+  picture: ''
+})
+
+// 显示编辑模态框
+const showEditBankModal = (record) => {
+  editBankForm.id = record.id
+  editBankForm.title = record.title
+  editBankForm.description = record.description
+  editBankForm.picture = record.picture
+  editBankModalVisible.value = true
+}
+
+// 触发编辑文件选择
+const triggerEditFileInput = () => {
+  editFileInput.value.click()
+}
+
+// 处理编辑文件选择
+const handleEditFileChange = async (e) => {
+  const file = e.target.files[0]
+  if (!file) return
+
+  try {
+    if (!file.type.startsWith('image/')) {
+      message.error('请选择图片文件')
+      return
+    }
+
+    if (file.size > 2 * 1024 * 1024) {
+      message.error('图片大小不能超过2MB')
+      return
+    }
+
+    const res = await fileApi.upload(file)
+    if (res.code === 200) {
+      editBankForm.picture = res.value
+      message.success('图片上传成功')
+    } else {
+      message.error(res.msg || '图片上传失败')
+    }
+  } catch (error) {
+    message.error('图片上传失败')
+  } finally {
+    e.target.value = ''
+  }
+}
+
+// 处理更新题库
+const handleUpdateBank = async () => {
+  if (!editBankForm.title) {
+    message.error('请输入题库名称')
+    return
+  }
+
+  try {
+    updatingBank.value = true
+    const res = await questionBankApi.update(editBankForm)
+    if (res.code === 200) {
+      message.success('更新题库成功')
+      editBankModalVisible.value = false
+      // 刷新题库列表
+      fetchBanks()
+    } else {
+      message.error(res.msg || '更新题库失败')
+    }
+  } catch (error) {
+    console.error('更新题库失败:', error)
+    message.error('更新题库失败')
+  } finally {
+    updatingBank.value = false
   }
 }
 

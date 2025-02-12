@@ -57,5 +57,18 @@ export const questionBankApi = {
         picture: data.picture
       }
     })
+  },
+  // 更新题库
+  update(data) {
+    return request({
+      url: '/questionBank/update',
+      method: 'post',
+      data: {
+        id: data.id,
+        title: data.title,
+        description: data.description,
+        picture: data.picture
+      }
+    })
   }
 } 
