@@ -527,7 +527,7 @@ const triggerFileInput = () => {
   fileInput.value.click()
 }
 
-// 修改文件选择处理函数，添加错误处理
+// 修改文件上传处理函数
 const handleFileChange = async (e) => {
   const file = e.target.files[0]
   if (!file) return
@@ -548,18 +548,19 @@ const handleFileChange = async (e) => {
     const res = await fileApi.upload(file)
     if (res.code === 200) {
       editForm.picture = res.value
+      // 立即更新头像显示
       userInfo.value.avatarUrl = res.value
-      message.success('头像上传成功')
       // 更新本地存储
-      const currentUser = JSON.parse(localStorage.getItem('userInfo') || '{}')
+      const currentUser = JSON.parse(localStorage.getItem('userInfo'))
       currentUser.avatarUrl = res.value
       localStorage.setItem('userInfo', JSON.stringify(currentUser))
-    } else {
-      message.error(res.msg || '头像上传失败')
+      // 触发全局事件
+      window.dispatchEvent(new CustomEvent('avatar-updated'))
+      message.success('头像上传成功')
     }
   } catch (error) {
     console.error('上传失败:', error)
-    message.error(error.response?.data?.msg || '头像上传失败')
+    message.error('头像上传失败')
   } finally {
     // 清空文件输入框，允许重复选择同一文件
     e.target.value = ''

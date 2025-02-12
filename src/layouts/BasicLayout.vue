@@ -56,11 +56,10 @@
         <div class="user-info">
           <a-dropdown>
             <a-space class="user-dropdown-link">
-              <a-avatar v-if="userInfo?.userName">
-                {{ userInfo.userName.charAt(0) }}
+              <a-avatar v-if="userInfo?.userName" :src="userInfo.avatarUrl">
+                {{ !userInfo.avatarUrl ? userInfo.userName.charAt(0) : '' }}
               </a-avatar>
-              <span class="username" v-if="userInfo?.userName">{{ userInfo.userName }}</span>
-              <span v-else>加载中...</span>
+              <span class="username">{{ userInfo.userName }}</span>
               <DownOutlined />
             </a-space>
             <template #overlay>
@@ -89,7 +88,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted, watch, computed } from 'vue'
+import { ref, onMounted, watch, computed, onUnmounted } from 'vue'
 import { userApi } from '@/api/user'
 import { message } from 'ant-design-vue'
 import { useRouter, useRoute } from 'vue-router'
@@ -131,7 +130,8 @@ const userInfo = ref({
   userRole: 0,
   userPicture: '',
   createTime: '',
-  updateTime: ''
+  updateTime: '',
+  avatarUrl: ''
 })
 
 // 获取用户信息
@@ -159,7 +159,8 @@ const fetchUserInfo = async () => {
         userRole: userData.userRole || 0,
         userPicture: userData.userPicture || '',
         createTime: userData.createTime || '',
-        updateTime: userData.updateTime || ''
+        updateTime: userData.updateTime || '',
+        avatarUrl: userData.avatarUrl || ''
       }
       userStorage.setUser(userInfo.value)
     } else {
@@ -177,6 +178,14 @@ onMounted(() => {
   if (localStorage.getItem('userInfo')) {
     fetchUserInfo()
   }
+
+  // 添加头像更新事件监听
+  window.addEventListener('avatar-updated', handleAvatarUpdate)
+})
+
+onUnmounted(() => {
+  // 移除事件监听
+  window.removeEventListener('avatar-updated', handleAvatarUpdate)
 })
 
 // 跳转到个人中心
@@ -196,6 +205,19 @@ const handleLogout = () => {
 
 // 判断是否为管理员
 const isAdmin = computed(() => userInfo.value?.userRole === 1)
+
+// 修改头像更新事件处理函数
+const handleAvatarUpdate = () => {
+  try {
+    const storedUserInfo = JSON.parse(localStorage.getItem('userInfo'))
+    if (storedUserInfo) {
+      // 直接更新整个userInfo对象
+      userInfo.value = storedUserInfo
+    }
+  } catch (error) {
+    console.error('更新头像失败:', error)
+  }
+}
 </script>
 
 <style scoped>
@@ -263,11 +285,15 @@ const isAdmin = computed(() => userInfo.value?.userRole === 1)
 :deep(.ant-avatar) {
   background-color: #1890ff;
   cursor: pointer;
+  width: 32px;
+  height: 32px;
+  line-height: 32px;
 }
 
-.content {
-  margin-top: 64px;
-  min-height: calc(100vh - 64px);
+:deep(.ant-avatar img) {
+  object-fit: cover;
+  width: 100%;
+  height: 100%;
 }
 
 .user-dropdown-link {
@@ -279,5 +305,10 @@ const isAdmin = computed(() => userInfo.value?.userRole === 1)
 
 .user-dropdown-link:hover {
   background: rgba(0, 0, 0, 0.025);
+}
+
+.content {
+  margin-top: 64px;
+  min-height: calc(100vh - 64px);
 }
 </style> 
