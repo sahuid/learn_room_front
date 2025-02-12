@@ -83,6 +83,11 @@ const routes = [
           requiresAuth: true,
           requiresAdmin: true
         }
+      },
+      {
+        path: 'bank/detail/:id',
+        component: () => import('@/views/QuestionBankDetail.vue'),
+        props: true
       }
     ]
   },

@@ -19,7 +19,7 @@
     <div class="bank-list">
       <div class="bank-grid">
         <div v-for="item in questionBankList" :key="item.id" class="bank-item">
-          <div class="bank-card" @click="handleCardClick(item)">
+          <div class="bank-card" @click="() => goToBankDetail(item.id)">
             <div class="card-cover">
               <img
                 v-if="item.picture"
@@ -133,9 +133,15 @@ const formatDate = (date) => {
   return dayjs(date).format('YYYY-MM-DD')
 }
 
-// 处理卡片点击
-const handleCardClick = (item) => {
-  router.push(`/home/bank/detail/${item.id}`)
+// 跳转到题库详情页
+const goToBankDetail = (bankId) => {
+  if (!bankId) {
+    message.error('题库ID不存在')
+    return
+  }
+  router.push({
+    path: `/home/bank/detail/${bankId}`
+  })
 }
 
 // 搜索相关
@@ -214,7 +220,7 @@ const handleImageError = (e) => {
 
 .card-cover {
   position: relative;
-  height: 200px;
+  height: 160px;
   overflow: hidden;
   background: #f5f5f5;
 }
@@ -222,8 +228,10 @@ const handleImageError = (e) => {
 .cover-image {
   width: 100%;
   height: 100%;
-  object-fit: cover;
+  object-fit: contain;
+  padding: 8px;
   transition: transform 0.3s;
+  background: #fff;
 }
 
 .bank-card:hover .cover-image {
@@ -245,6 +253,7 @@ const handleImageError = (e) => {
 
 .card-content {
   padding: 20px;
+  padding-top: 16px;
 }
 
 .card-title {
@@ -267,7 +276,7 @@ const handleImageError = (e) => {
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
   line-height: 1.6;
-  height: 44px;
+  min-height: 44px;
 }
 
 .card-footer {
