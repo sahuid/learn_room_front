@@ -45,5 +45,17 @@ export const questionBankApi = {
       method: 'delete',
       params
     })
+  },
+  // 添加题库
+  add(data) {
+    return request({
+      url: '/questionBank/add',
+      method: 'post',
+      data: {
+        title: data.title,
+        description: data.description,
+        picture: data.picture
+      }
+    })
   }
 } 

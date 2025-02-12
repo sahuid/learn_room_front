@@ -1,5 +1,14 @@
 <template>
   <div class="admin-container">
+    <!-- 添加隐藏的文件输入框 -->
+    <input
+      type="file"
+      ref="fileInput"
+      style="display: none"
+      accept="image/*"
+      @change="handleFileChange"
+    />
+    
     <a-card class="admin-card">
       <template #title>
         <h2>管理后台</h2>
@@ -79,6 +88,14 @@
         
         <a-tab-pane key="banks" tab="题库管理">
           <div class="tab-content">
+            <!-- 添加题库按钮 -->
+            <div class="table-operations">
+              <a-button type="primary" @click="showAddBankModal">
+                <plus-outlined />
+                添加题库
+              </a-button>
+            </div>
+
             <!-- 搜索表单 -->
             <a-form layout="inline" class="search-form">
               <a-form-item label="题库名称">
@@ -109,6 +126,17 @@
               :pagination="banksPagination"
               @change="handleBanksTableChange"
             >
+              <template #bodyCell="{ column, record }">
+                <template v-if="column.key === 'picture'">
+                  <img 
+                    v-if="record.picture" 
+                    :src="record.picture" 
+                    alt="题库图片"
+                    class="bank-thumbnail" 
+                  />
+                  <span v-else>暂无图片</span>
+                </template>
+              </template>
             </a-table>
           </div>
         </a-tab-pane>
@@ -147,20 +175,63 @@
         </a-form-item>
       </a-form>
     </Modal>
+
+    <!-- 添加题库的模态框 -->
+    <a-modal
+      v-model:visible="addBankModalVisible"
+      title="添加题库"
+      @ok="handleAddBank"
+      :confirm-loading="addingBank"
+      okText="确定"
+      cancelText="取消"
+    >
+      <a-form :model="bankForm" layout="vertical">
+        <a-form-item label="题库名称" required>
+          <a-input v-model:value="bankForm.title" placeholder="请输入题库名称" />
+        </a-form-item>
+        
+        <a-form-item label="题库描述">
+          <a-textarea 
+            v-model:value="bankForm.description" 
+            placeholder="请输入题库描述"
+            :rows="4" 
+          />
+        </a-form-item>
+        
+        <a-form-item label="题库图片">
+          <div class="upload-wrapper">
+            <div class="upload-container" @click="triggerFileInput">
+              <div v-if="bankForm.picture" class="preview-container">
+                <img :src="bankForm.picture" alt="题库图片" />
+                <div class="upload-mask">
+                  <camera-outlined />
+                  <span>点击更换图片</span>
+                </div>
+              </div>
+              <div v-else class="upload-placeholder">
+                <plus-outlined />
+                <div class="upload-text">点击上传图片</div>
+              </div>
+            </div>
+          </div>
+        </a-form-item>
+      </a-form>
+    </a-modal>
   </div>
 </template>
 
 <script setup>
-import { ref, onMounted, watch, nextTick } from 'vue'
+import { ref, onMounted, watch, nextTick, reactive } from 'vue'
 import { h } from 'vue'
 import { userApi } from '@/api/user'
 import { questionApi } from '@/api/question'
 import { questionBankApi } from '@/api/questionBank'
 import { message, Button, Space, Tag, Popconfirm, Modal } from 'ant-design-vue'
 import dayjs from 'dayjs'
-import { PlusOutlined } from '@ant-design/icons-vue'
+import { PlusOutlined, CameraOutlined } from '@ant-design/icons-vue'
 import AddQuestionModal from '@/components/AddQuestionModal.vue'
 import { useRouter } from 'vue-router'
+import { fileApi } from '@/api/file'
 
 const activeTab = ref('users')
 const loading = ref(false)
@@ -543,6 +614,12 @@ const bankColumns = [
     width: '20%'
   },
   {
+    title: '题库图片',
+    dataIndex: 'picture',
+    key: 'picture',
+    width: 120
+  },
+  {
     title: '题库描述',
     dataIndex: 'description',
     key: 'description',
@@ -658,6 +735,91 @@ const handleDeleteBank = async (record) => {
   }
 }
 
+// 添加新的响应式数据
+const addBankModalVisible = ref(false)
+const addingBank = ref(false)
+const fileList = ref([])
+const bankForm = reactive({
+  title: '',
+  description: '',
+  picture: ''
+})
+
+// 显示添加题库模态框
+const showAddBankModal = () => {
+  bankForm.title = ''
+  bankForm.description = ''
+  bankForm.picture = ''
+  fileList.value = []
+  addBankModalVisible.value = true
+}
+
+// 处理文件选择
+const handleFileChange = async (e) => {
+  const file = e.target.files[0]
+  if (!file) return
+
+  try {
+    // 验证文件类型
+    if (!file.type.startsWith('image/')) {
+      message.error('请选择图片文件')
+      return
+    }
+
+    // 验证文件大小（限制为2MB）
+    if (file.size > 2 * 1024 * 1024) {
+      message.error('图片大小不能超过2MB')
+      return
+    }
+
+    const res = await fileApi.upload(file)
+    if (res.code === 200) {
+      bankForm.picture = res.value
+      message.success('图片上传成功')
+    } else {
+      message.error(res.msg || '图片上传失败')
+    }
+  } catch (error) {
+    message.error('图片上传失败')
+  } finally {
+    // 清空文件输入框，允许重复选择同一文件
+    e.target.value = ''
+  }
+}
+
+// 触发文件选择
+const triggerFileInput = () => {
+  fileInput.value.click()
+}
+
+const fileInput = ref(null)
+
+// 处理添加题库
+const handleAddBank = async () => {
+  if (!bankForm.title) {
+    message.error('请输入题库名称')
+    return
+  }
+
+  try {
+    addingBank.value = true
+    const res = await questionBankApi.add(bankForm)
+    if (res.code === 200) {
+      message.success('添加题库成功')
+      addBankModalVisible.value = false
+      // 刷新题库列表
+      fetchBanks()
+    } else {
+      message.error(res.msg || '添加题库失败')
+    }
+  } catch (error) {
+    console.error('添加题库失败:', error)
+    message.error('添加题库失败')
+  } finally {
+    addingBank.value = false
+  }
+}
+
 onMounted(() => {
   if (activeTab.value === 'users') {
     fetchUsers()
@@ -751,5 +913,91 @@ onMounted(() => {
 /* 表单项间距 */
 :deep(.ant-form-item) {
   margin-bottom: 16px;
+}
+
+.bank-thumbnail {
+  width: 80px;
+  height: 80px;
+  object-fit: cover;
+  border-radius: 4px;
+}
+
+.upload-wrapper {
+  text-align: center;
+}
+
+.preview-container {
+  position: relative;
+  width: 200px;
+  height: 150px;
+  border-radius: 8px;
+  overflow: hidden;
+  cursor: pointer;
+  border: 1px solid #d9d9d9;
+}
+
+.preview-container img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.upload-mask {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  color: white;
+  opacity: 0;
+  transition: opacity 0.3s;
+}
+
+.preview-container:hover .upload-mask {
+  opacity: 1;
+}
+
+.upload-mask .anticon {
+  font-size: 24px;
+  margin-bottom: 8px;
+}
+
+.upload-placeholder {
+  width: 200px;
+  height: 150px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  background-color: #fafafa;
+  border: 1px dashed #d9d9d9;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: border-color 0.3s;
+}
+
+.upload-placeholder:hover {
+  border-color: #1890ff;
+}
+
+.upload-placeholder .anticon {
+  font-size: 32px;
+  color: #999;
+  margin-bottom: 8px;
+}
+
+.upload-text {
+  color: #666;
+  font-size: 14px;
+}
+
+.upload-container {
+  display: inline-block;
+  cursor: pointer;
 }
 </style> 

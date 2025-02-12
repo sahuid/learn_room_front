@@ -166,6 +166,8 @@
       @ok="handleUpdate"
       @cancel="editModalVisible = false"
       :confirm-loading="updating"
+      okText="保存"
+      cancelText="取消"
     >
       <a-form layout="vertical">
         <a-form-item label="头像">
