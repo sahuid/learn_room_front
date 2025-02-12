@@ -137,18 +137,21 @@ const userInfo = ref({
 // 获取用户信息
 const fetchUserInfo = async () => {
   try {
-    // 先检查是否有登录信息
     const loginInfo = localStorage.getItem('userInfo')
     if (!loginInfo) {
       router.push('/login')
       return
     }
-    // 检查是否已经有用户信息
+    
     const cachedUser = userStorage.getUser()
     if (cachedUser) {
+      if (cachedUser.userPicture && !cachedUser.avatarUrl) {
+        cachedUser.avatarUrl = cachedUser.userPicture
+      }
       userInfo.value = cachedUser
       return
     }
+
     const res = await userApi.getuserInfo()
     if (res.code === 200) {
       const userData = res.value || {}
@@ -160,7 +163,7 @@ const fetchUserInfo = async () => {
         userPicture: userData.userPicture || '',
         createTime: userData.createTime || '',
         updateTime: userData.updateTime || '',
-        avatarUrl: userData.avatarUrl || ''
+        avatarUrl: userData.userPicture || userData.avatarUrl || ''
       }
       userStorage.setUser(userInfo.value)
     } else {

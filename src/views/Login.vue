@@ -123,6 +123,10 @@ const handleFinish = async (values) => {
       try {
         const userRes = await userApi.getuserInfo()
         if (userRes.code === 200) {
+          const userData = userRes.value
+          if (userData.userPicture) {
+            userData.avatarUrl = userData.userPicture
+          }
           localStorage.setItem('userInfo', JSON.stringify(userRes.value))
           router.push('/home')
         } else {
