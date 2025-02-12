@@ -1,19 +1,55 @@
 <template>
-  <div class="page-container">
-    <h1 class="page-title">题库列表</h1>
-    <div class="search-form">
-      <!-- 搜索表单内容 -->
+  <div class="question-bank-container">
+    <!-- 头部搜索区域 -->
+    <div class="header-section">
+      <h1 class="page-title">题库列表</h1>
+      <a-input-search
+        v-model:value="searchText"
+        placeholder="搜索题库"
+        @search="handleSearch"
+        class="search-input"
+      >
+        <template #enterButton>
+          <search-outlined />
+        </template>
+      </a-input-search>
     </div>
-    <div class="list-container">
-      <a-row :gutter="[24, 24]" class="bank-grid">
-        <a-col :span="8" v-for="item in questionBankList" :key="item.id">
-          <question-bank-card :item="item" />
-        </a-col>
-      </a-row>
+
+    <!-- 题库列表区域 -->
+    <div class="bank-list">
+      <div class="bank-grid">
+        <div v-for="item in questionBankList" :key="item.id" class="bank-item">
+          <div class="bank-card" @click="handleCardClick(item)">
+            <div class="card-cover">
+              <img
+                v-if="item.picture"
+                :src="item.picture"
+                :alt="item.title"
+                class="cover-image"
+                @error="handleImageError"
+              />
+              <div v-else class="cover-placeholder">
+                <book-outlined class="placeholder-icon" />
+              </div>
+            </div>
+            <div class="card-content">
+              <h3 class="card-title">{{ item.title }}</h3>
+              <p class="card-desc">{{ item.description || '暂无描述' }}</p>
+              <div class="card-footer">
+                <span class="question-count">
+                  <file-text-outlined />
+                  {{ item.questionCount || 0 }} 题
+                </span>
+                <span class="create-time">{{ formatDate(item.createTime) }}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
-    
+
     <!-- 分页器 -->
-    <div class="pagination">
+    <div class="pagination-wrapper">
       <a-pagination
         v-model:current="pagination.current"
         v-model:pageSize="pagination.pageSize"
@@ -35,9 +71,13 @@ export default {
 
 <script setup>
 import { ref, reactive, onMounted } from 'vue'
+import { useRouter } from 'vue-router'
 import { questionBankApi } from '@/api/questionBank'
 import { message } from 'ant-design-vue'
-import QuestionBankCard from '@/components/QuestionBankCard.vue'
+import { SearchOutlined, BookOutlined, FileTextOutlined } from '@ant-design/icons-vue'
+import dayjs from 'dayjs'
+
+const router = useRouter()
 
 // 题库列表数据
 const questionBankList = ref([])
@@ -86,123 +126,202 @@ onMounted(() => {
     fetchQuestionBanks()
   }
 })
+
+// 格式化日期
+const formatDate = (date) => {
+  if (!date) return ''
+  return dayjs(date).format('YYYY-MM-DD')
+}
+
+// 处理卡片点击
+const handleCardClick = (item) => {
+  router.push(`/home/bank/detail/${item.id}`)
+}
+
+// 搜索相关
+const searchText = ref('')
+const handleSearch = () => {
+  pagination.current = 1
+  fetchQuestionBanks()
+}
+
+// 处理图片加载错误
+const handleImageError = (e) => {
+  e.target.src = '/default-bank-cover.png'  // 设置默认图片
+}
 </script>
 
 <style scoped>
-.page-container {
+.question-bank-container {
   padding: 24px;
   max-width: 1400px;
   margin: 0 auto;
-  min-height: calc(100vh - 64px); /* 减去导航栏高度 */
+  min-height: calc(100vh - 64px);
 }
 
-.content-card {
-  background: #fff;
-  border-radius: 8px;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-  padding: 24px;
+.header-section {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
   margin-bottom: 24px;
+  background: white;
+  padding: 20px 24px;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
 }
 
 .page-title {
-  margin: 0 0 24px;
+  margin: 0;
   font-size: 24px;
-  font-weight: 500;
+  font-weight: 600;
   color: #1f1f1f;
 }
 
-.search-form {
-  margin-bottom: 24px;
+.search-input {
+  width: 300px;
+}
+
+.bank-list {
+  background: white;
+  border-radius: 8px;
   padding: 24px;
-  background: #fafafa;
-  border-radius: 8px;
-}
-
-.table-wrapper {
-  background: #fff;
-  border-radius: 8px;
-  overflow: hidden;
-}
-
-.button-group {
-  margin-bottom: 24px;
-  display: flex;
-  gap: 8px;
-}
-
-.list-container {
-  margin-bottom: 24px;
-}
-
-.card-item {
-  background: #fff;
-  border-radius: 8px;
-  padding: 16px;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-  transition: all 0.3s;
-}
-
-.card-item:hover {
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-  transform: translateY(-2px);
-}
-
-.pagination {
-  text-align: center;
-  margin-top: 24px;
-  padding: 16px 0;
-}
-
-/* 响应式调整 */
-@media (max-width: 1200px) {
-  .page-container {
-    padding: 16px;
-  }
-}
-
-@media (max-width: 768px) {
-  .page-container {
-    padding: 12px;
-  }
-
-  .page-title {
-    font-size: 20px;
-    margin-bottom: 16px;
-  }
-
-  .search-form {
-    padding: 16px;
-    margin-bottom: 16px;
-  }
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
 }
 
 .bank-grid {
-  margin: 0 -12px;  /* 抵消 gutter 的间距 */
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 24px;
 }
 
-.bank-grid :deep(.ant-col) {
-  padding: 12px;  /* 调整卡片间的间距 */
+.bank-item {
+  transition: transform 0.3s;
+}
+
+.bank-card {
+  background: white;
+  border-radius: 12px;
+  overflow: hidden;
+  cursor: pointer;
+  border: 1px solid #f0f0f0;
+  transition: all 0.3s;
+}
+
+.bank-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
+}
+
+.card-cover {
+  position: relative;
+  height: 200px;
+  overflow: hidden;
+  background: #f5f5f5;
+}
+
+.cover-image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform 0.3s;
+}
+
+.bank-card:hover .cover-image {
+  transform: scale(1.05);
+}
+
+.cover-placeholder {
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #f0f2f5;
+}
+
+.placeholder-icon {
+  font-size: 48px;
+  color: #d9d9d9;
+}
+
+.card-content {
+  padding: 20px;
+}
+
+.card-title {
+  margin: 0 0 12px;
+  font-size: 18px;
+  font-weight: 600;
+  color: #1f1f1f;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.card-desc {
+  margin: 0 0 16px;
+  font-size: 14px;
+  color: #666;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  line-height: 1.6;
+  height: 44px;
+}
+
+.card-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  color: #999;
+  font-size: 14px;
+}
+
+.question-count {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.create-time {
+  font-size: 13px;
+}
+
+.pagination-wrapper {
+  margin-top: 24px;
+  padding: 16px;
+  background: white;
+  border-radius: 8px;
+  text-align: center;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
 }
 
 /* 响应式布局 */
-@media (max-width: 1200px) {
-  .bank-grid :deep(.ant-col) {
-    flex: 0 0 33.33%;
-    max-width: 33.33%;
+@media screen and (max-width: 1400px) {
+  .bank-grid {
+    grid-template-columns: repeat(3, 1fr);
   }
 }
 
-@media (max-width: 768px) {
-  .bank-grid :deep(.ant-col) {
-    flex: 0 0 50%;
-    max-width: 50%;
+@media screen and (max-width: 1200px) {
+  .bank-grid {
+    grid-template-columns: repeat(2, 1fr);
   }
 }
 
-@media (max-width: 576px) {
-  .bank-grid :deep(.ant-col) {
-    flex: 0 0 100%;
-    max-width: 100%;
+@media screen and (max-width: 768px) {
+  .bank-grid {
+    grid-template-columns: 1fr;
+  }
+  
+  .header-section {
+    flex-direction: column;
+    gap: 16px;
+  }
+  
+  .search-input {
+    width: 100%;
   }
 }
 </style> 

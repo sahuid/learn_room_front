@@ -88,34 +88,36 @@
         
         <a-tab-pane key="banks" tab="题库管理">
           <div class="tab-content">
-            <!-- 添加题库按钮 -->
-            <div class="table-operations">
-              <a-button type="primary" @click="showAddBankModal">
-                <plus-outlined />
-                添加题库
-              </a-button>
-            </div>
-
             <!-- 搜索表单 -->
             <a-form layout="inline" class="search-form">
-              <a-form-item label="题库名称">
-                <a-input
-                  v-model:value="bankSearchForm.title"
-                  placeholder="请输入题库名称"
-                  allow-clear
-                />
-              </a-form-item>
-              <a-form-item label="题库描述">
-                <a-input
-                  v-model:value="bankSearchForm.description"
-                  placeholder="请输入题库描述"
-                  allow-clear
-                />
-              </a-form-item>
-              <a-form-item>
-                <a-button type="primary" @click="handleBankSearch">搜索</a-button>
-                <a-button style="margin-left: 8px" @click="resetBankSearch">重置</a-button>
-              </a-form-item>
+              <div class="search-form-wrapper">
+                <div class="search-inputs">
+                  <a-form-item label="题库名称">
+                    <a-input
+                      v-model:value="bankSearchForm.title"
+                      placeholder="请输入题库名称"
+                      allow-clear
+                    />
+                  </a-form-item>
+                  <a-form-item label="题库描述">
+                    <a-input
+                      v-model:value="bankSearchForm.description"
+                      placeholder="请输入题库描述"
+                      allow-clear
+                    />
+                  </a-form-item>
+                  <a-form-item>
+                    <a-button type="primary" @click="handleBankSearch">搜索</a-button>
+                    <a-button style="margin-left: 8px" @click="resetBankSearch">重置</a-button>
+                  </a-form-item>
+                </div>
+                <div class="search-actions">
+                  <a-button type="primary" @click="showAddBankModal">
+                    <plus-outlined />
+                    添加题库
+                  </a-button>
+                </div>
+              </div>
             </a-form>
             
             <!-- 题库列表表格 -->
@@ -1009,6 +1011,22 @@ onMounted(() => {
   border-radius: 8px;
 }
 
+.search-form-wrapper {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+}
+
+.search-inputs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+}
+
+.search-actions {
+  margin-left: 16px;
+}
+
 /* 表格样式优化 */
 :deep(.ant-table-wrapper) {
   background: #fff;
@@ -1047,22 +1065,40 @@ onMounted(() => {
   margin-bottom: 16px;
 }
 
+/* 添加表格缩略图样式 */
 .bank-thumbnail {
   width: 80px;
   height: 80px;
   object-fit: cover;
   border-radius: 4px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  transition: transform 0.3s;
 }
 
+.bank-thumbnail:hover {
+  transform: scale(1.05);
+}
+
+.pagination-wrapper {
+  margin-top: 24px;
+  text-align: center;
+}
+
+/* 上传组件样式优化 */
 .upload-wrapper {
   text-align: center;
 }
 
+.upload-container {
+  display: inline-block;
+  cursor: pointer;
+}
+
 .preview-container {
   position: relative;
-  width: 200px;
-  height: 150px;
-  border-radius: 8px;
+  width: 160px;
+  height: 120px;
+  border-radius: 4px;
   overflow: hidden;
   cursor: pointer;
   border: 1px solid #d9d9d9;
@@ -1095,20 +1131,20 @@ onMounted(() => {
 }
 
 .upload-mask .anticon {
-  font-size: 24px;
-  margin-bottom: 8px;
+  font-size: 20px;
+  margin-bottom: 4px;
 }
 
 .upload-placeholder {
-  width: 200px;
-  height: 150px;
+  width: 160px;
+  height: 120px;
   display: flex;
   flex-direction: column;
   justify-content: center;
   align-items: center;
   background-color: #fafafa;
   border: 1px dashed #d9d9d9;
-  border-radius: 8px;
+  border-radius: 4px;
   cursor: pointer;
   transition: border-color 0.3s;
 }
@@ -1118,18 +1154,13 @@ onMounted(() => {
 }
 
 .upload-placeholder .anticon {
-  font-size: 32px;
+  font-size: 24px;
   color: #999;
   margin-bottom: 8px;
 }
 
 .upload-text {
   color: #666;
-  font-size: 14px;
-}
-
-.upload-container {
-  display: inline-block;
-  cursor: pointer;
+  font-size: 13px;
 }
 </style> 
