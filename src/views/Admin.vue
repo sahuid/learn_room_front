@@ -46,7 +46,17 @@
           <div class="tab-content">
             <!-- 操作按钮 -->
             <div class="table-operations">
-              <div style="display: flex; justify-content: flex-end;">
+              <div class="operation-buttons">
+                <a-upload
+                  :customRequest="handleImportQuestions"
+                  :showUploadList="false"
+                  accept=".json,.csv,.xlsx,.xls"
+                >
+                  <a-button>
+                    <template #icon><upload-outlined /></template>
+                    批量导入
+                  </a-button>
+                </a-upload>
                 <a-button type="primary" @click="goToAddQuestion">
                   <template #icon>
                     <plus-outlined />
@@ -279,12 +289,15 @@ import { h } from 'vue'
 import { userApi } from '@/api/user'
 import { questionApi } from '@/api/question'
 import { questionBankApi } from '@/api/questionBank'
-import { message, Button, Space, Tag, Popconfirm, Modal } from 'ant-design-vue'
+import { message, Button, Space, Tag, Popconfirm, Modal, Upload } from 'ant-design-vue'
 import dayjs from 'dayjs'
-import { PlusOutlined, CameraOutlined } from '@ant-design/icons-vue'
+import { PlusOutlined, CameraOutlined, UploadOutlined } from '@ant-design/icons-vue'
 import AddQuestionModal from '@/components/AddQuestionModal.vue'
 import { useRouter } from 'vue-router'
 import { fileApi } from '@/api/file'
+
+// 注册 Upload 组件
+const AUpload = Upload
 
 const activeTab = ref('users')
 const loading = ref(false)
@@ -954,6 +967,43 @@ const handleUpdateBank = async () => {
   }
 }
 
+// 处理批量导入题目
+const handleImportQuestions = async ({ file }) => {
+  if (!file) {
+    message.error('请选择文件')
+    return
+  }
+
+  const formData = new FormData()
+  formData.append('file', file)
+
+  try {
+    loading.value = true
+    const res = await fetch('/api/file/export', {
+      method: 'POST',
+      body: formData,
+      headers: {
+        [localStorage.getItem('tokenName')]: localStorage.getItem('tokenValue')
+      }
+    })
+    
+    const data = await res.json()
+    
+    if (data.code === 200) {
+      message.success('导入成功')
+      // 刷新题目列表
+      fetchQuestions()
+    } else {
+      message.error(data.msg || '导入失败')
+    }
+  } catch (error) {
+    console.error('导入失败:', error)
+    message.error('导入失败，请重试')
+  } finally {
+    loading.value = false
+  }
+}
+
 onMounted(() => {
   if (activeTab.value === 'users') {
     fetchUsers()
@@ -1001,6 +1051,12 @@ onMounted(() => {
   margin-bottom: 24px;
   display: flex;
   justify-content: flex-end;
+}
+
+.operation-buttons {
+  display: flex;
+  gap: 16px;
+  align-items: center;
 }
 
 /* 搜索表单样式 */
