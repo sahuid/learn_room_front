@@ -47,6 +47,20 @@
             <!-- 操作按钮 -->
             <div class="table-operations">
               <div class="operation-buttons">
+                <a-dropdown>
+                  <a-button>
+                    <template #icon><download-outlined /></template>
+                    下载模板
+                    <down-outlined />
+                  </a-button>
+                  <template #overlay>
+                    <a-menu @click="handleDownloadTemplate">
+                      <a-menu-item key="json">JSON 模板</a-menu-item>
+                      <a-menu-item key="csv">CSV 模板</a-menu-item>
+                      <a-menu-item key="excel">Excel 模板</a-menu-item>
+                    </a-menu>
+                  </template>
+                </a-dropdown>
                 <a-upload
                   :customRequest="handleImportQuestions"
                   :showUploadList="false"
@@ -291,7 +305,7 @@ import { questionApi } from '@/api/question'
 import { questionBankApi } from '@/api/questionBank'
 import { message, Button, Space, Tag, Popconfirm, Modal, Upload } from 'ant-design-vue'
 import dayjs from 'dayjs'
-import { PlusOutlined, CameraOutlined, UploadOutlined } from '@ant-design/icons-vue'
+import { PlusOutlined, CameraOutlined, UploadOutlined, DownloadOutlined, DownOutlined } from '@ant-design/icons-vue'
 import AddQuestionModal from '@/components/AddQuestionModal.vue'
 import { useRouter } from 'vue-router'
 import { fileApi } from '@/api/file'
@@ -1004,6 +1018,51 @@ const handleImportQuestions = async ({ file }) => {
   }
 }
 
+// 处理下载模板
+const handleDownloadTemplate = async ({ key }) => {
+  try {
+    // 使用 POST 请求下载模板
+    const response = await fetch('/api/file/template', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',  // 使用表单格式
+        [localStorage.getItem('tokenName')]: localStorage.getItem('tokenValue')
+      },
+      body: new URLSearchParams({  // 使用 URLSearchParams 构建请求参数
+        type: key
+      }).toString()
+    })
+
+    if (!response.ok) {
+      throw new Error('下载失败')
+    }
+
+    // 获取文件流
+    const blob = await response.blob()
+    
+    // 创建下载链接
+    const url = window.URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.style.display = 'none'
+    link.href = url
+    // 根据不同类型设置不同的文件扩展名
+    const extension = key === 'excel' ? 'xlsx' : key
+    link.download = `template.${extension}`
+    
+    // 触发下载
+    document.body.appendChild(link)
+    link.click()
+    
+    // 清理
+    window.URL.revokeObjectURL(url)
+    document.body.removeChild(link)
+
+  } catch (error) {
+    console.error('下载模板失败:', error)
+    message.error('下载模板失败，请重试')
+  }
+}
+
 onMounted(() => {
   if (activeTab.value === 'users') {
     fetchUsers()
@@ -1218,5 +1277,14 @@ onMounted(() => {
 .upload-text {
   color: #666;
   font-size: 13px;
+}
+
+/* 添加下拉菜单样式 */
+:deep(.ant-dropdown-menu) {
+  padding: 4px 0;
+}
+
+:deep(.ant-dropdown-menu-item) {
+  padding: 8px 16px;
 }
 </style> 
