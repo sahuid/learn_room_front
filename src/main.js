@@ -30,6 +30,41 @@ import {
   List
 } from 'ant-design-vue'
 import 'ant-design-vue/dist/reset.css'
+import VueMarkdownEditor from '@kangc/v-md-editor'
+import '@kangc/v-md-editor/lib/style/base-editor.css'
+import githubTheme from '@kangc/v-md-editor/lib/theme/github.js'
+import '@kangc/v-md-editor/lib/theme/style/github.css'
+import hljs from 'highlight.js'
+
+// 配置 markdown 编辑器
+VueMarkdownEditor.use(githubTheme, {
+  Hljs: hljs,
+  extend(md) {
+    md.set({
+      html: true,
+      breaks: true,
+      linkify: true,
+      typographer: true,
+    })
+  },
+  codeHighlightExtensionMap: {
+    vue: 'xml',
+    typescript: 'typescript',
+    javascript: 'javascript',
+    python: 'python',
+    java: 'java',
+    go: 'go',
+    rust: 'rust',
+    cpp: 'cpp',
+    c: 'c',
+    json: 'json',
+    yaml: 'yaml',
+    bash: 'bash',
+    sql: 'sql',
+    html: 'html',
+    css: 'css'
+  }
+})
 
 const app = createApp(App)
 
@@ -60,4 +95,5 @@ app.use(List)
 app.config.globalProperties.$message = message
 
 app.use(router)
+app.use(VueMarkdownEditor)
 app.mount('#app')

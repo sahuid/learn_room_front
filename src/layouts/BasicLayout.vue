@@ -46,12 +46,24 @@
             </template>
             <span>AI助手</span>
           </a-menu-item>
-          <a-menu-item v-if="isAdmin" key="admin" @click="router.push('/home/admin')">
+          <a-sub-menu v-if="isAdmin" key="admin">
             <template #icon>
               <SettingOutlined />
             </template>
-            <span>管理后台</span>
-          </a-menu-item>
+            <template #title>管理后台</template>
+            <a-menu-item key="user-manage" @click="router.push('/home/admin/users')">
+              <UserOutlined />
+              <span>用户管理</span>
+            </a-menu-item>
+            <a-menu-item key="question-manage" @click="router.push('/home/admin/questions')">
+              <FileTextOutlined />
+              <span>题目管理</span>
+            </a-menu-item>
+            <a-menu-item key="bank-manage" @click="router.push('/home/admin/banks')">
+              <BookOutlined />
+              <span>题库管理</span>
+            </a-menu-item>
+          </a-sub-menu>
         </a-menu>
         <div class="user-info">
           <a-dropdown>
@@ -103,7 +115,8 @@ import {
   LogoutOutlined,
   DownOutlined,
   SettingOutlined,
-  RobotOutlined
+  RobotOutlined,
+  FileTextOutlined
 } from '@ant-design/icons-vue'
 
 const router = useRouter()
@@ -114,10 +127,25 @@ const selectedKeys = ref(['home'])
 
 // 监听路由变化，更新选中的菜单项
 watch(
-  () => route.path,
+  () => route.fullPath,
   (path) => {
-    const key = path === '/home' ? 'home' : path.split('/').pop()
-    selectedKeys.value = [key]
+    if (path === '/home') {
+      selectedKeys.value = ['home']
+    } else {
+      // 处理管理后台的路由
+      if (path.includes('/admin/users')) {
+        selectedKeys.value = ['user-manage']
+      } else if (path.includes('/admin/questions')) {
+        selectedKeys.value = ['question-manage']
+      } else if (path.includes('/admin/banks')) {
+        selectedKeys.value = ['bank-manage']
+      } else {
+        // 其他路由使用最后一个段落作为 key
+        const pathSegments = path.split('/')
+        const lastSegment = pathSegments[pathSegments.length - 1]
+        selectedKeys.value = [lastSegment]
+      }
+    }
   },
   { immediate: true }
 )
@@ -313,5 +341,21 @@ const handleAvatarUpdate = () => {
 .content {
   margin-top: 64px;
   min-height: calc(100vh - 64px);
+}
+
+/* 添加下拉菜单样式 */
+:deep(.ant-menu-submenu-title) {
+  display: flex;
+  align-items: center;
+}
+
+:deep(.ant-menu-submenu-popup .ant-menu-item) {
+  padding-left: 24px !important;
+  height: 40px;
+  line-height: 40px;
+}
+
+:deep(.ant-menu-submenu-popup .ant-menu-item .anticon) {
+  margin-right: 8px;
 }
 </style> 

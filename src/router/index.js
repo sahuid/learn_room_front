@@ -5,7 +5,6 @@ import Home from '@/views/Home.vue'
 import { message } from 'ant-design-vue'
 import Interview from '@/views/Interview.vue'
 import AIAssistant from '@/views/AIAssistant.vue'
-import Admin from '@/views/Admin.vue'
 import Register from '@/views/Register.vue'
 
 // 路由配置
@@ -52,8 +51,31 @@ const routes = [
         component: AIAssistant
       },
       {
-        path: 'admin',
-        component: Admin
+        path: 'admin/users',
+        component: () => import('@/views/admin/UserManage.vue'),
+        name: 'UserManage',
+        meta: { 
+          requiresAuth: true,
+          requiresAdmin: true
+        }
+      },
+      {
+        path: 'admin/questions',
+        component: () => import('@/views/admin/QuestionManage.vue'),
+        name: 'QuestionManage',
+        meta: { 
+          requiresAuth: true,
+          requiresAdmin: true
+        }
+      },
+      {
+        path: 'admin/banks',
+        component: () => import('@/views/admin/BankManage.vue'),
+        name: 'BankManage',
+        meta: { 
+          requiresAuth: true,
+          requiresAdmin: true
+        }
       },
       {
         path: 'question-bank/detail/:id',
@@ -65,15 +87,6 @@ const routes = [
         path: 'question-bank/question/:id',
         component: () => import('@/views/QuestionDetail.vue'),
         name: 'QuestionDetail'
-      },
-      {
-        path: 'admin',
-        component: () => import('@/views/Admin.vue'),
-        name: 'Admin',
-        meta: { 
-          requiresAuth: true,
-          requiresAdmin: true
-        }
       },
       {
         path: 'question/add',

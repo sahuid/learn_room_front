@@ -9,6 +9,7 @@
   },
   "dependencies": {
     "@ant-design/icons-vue": "^7.0.1",
+    "@kangc/v-md-editor": "^2.3.18",
     "@vueup/vue-quill": "^1.2.0",
     "@wangeditor/editor": "^5.1.23",
     "@wangeditor/editor-for-vue": "^5.1.12",
@@ -18,7 +19,7 @@
     "echarts": "^5.5.1",
     "github-markdown-css": "^5.8.1",
     "highlight.js": "^11.11.1",
-    "katex": "^0.16.19",
+    "katex": "^0.16.21",
     "marked": "^15.0.4",
     "mermaid": "^11.4.1",
     "vue": "^3.3.0",

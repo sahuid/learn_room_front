@@ -56,16 +56,19 @@
           />
         </a-form-item>
 
-        <!-- 答案内容 -->
-        <a-form-item label="答案内容" name="answer">
-          <QuillEditor
-            v-model:content="formState.answer"
-            contentType="html"
-            theme="snow"
-            :options="editorOptions"
-            :style="{ height: '500px' }"
-            @ready="onEditorReady"
-          />
+        <!-- Markdown 编辑器 -->
+        <a-form-item label="题目答案" name="answer">
+          <div class="markdown-editor-container">
+            <v-md-editor
+              v-model="formState.answer"
+              height="400px"
+              :disabled-menus="[]"
+              @upload-image="handleUploadImage"
+              :toolbar="toolbars"
+              :preview-theme="previewTheme"
+              :code-theme="codeTheme"
+            />
+          </div>
         </a-form-item>
 
         <!-- 提交按钮 -->
@@ -89,8 +92,7 @@ import { ref, reactive } from 'vue'
 import { useRouter } from 'vue-router'
 import { message } from 'ant-design-vue'
 import { questionApi } from '@/api/question'
-import { QuillEditor } from '@vueup/vue-quill'
-import '@vueup/vue-quill/dist/vue-quill.snow.css'
+import { fileApi } from '@/api/file'
 
 const router = useRouter()
 const submitting = ref(false)
@@ -123,32 +125,33 @@ const rules = {
 }
 
 // 编辑器配置
-const editorOptions = {
-  modules: {
-    toolbar: [
-      ['bold', 'italic', 'underline', 'strike'],
-      ['blockquote', 'code-block'],
-      [{ 'header': 1 }, { 'header': 2 }],
-      [{ 'list': 'ordered'}, { 'list': 'bullet' }],
-      [{ 'script': 'sub'}, { 'script': 'super' }],
-      [{ 'indent': '-1'}, { 'indent': '+1' }],
-      [{ 'direction': 'rtl' }],
-      [{ 'size': ['small', false, 'large', 'huge'] }],
-      [{ 'header': [1, 2, 3, 4, 5, 6, false] }],
-      [{ 'color': [] }, { 'background': [] }],
-      [{ 'font': [] }],
-      [{ 'align': [] }],
-      ['clean'],
-      ['link', 'image', 'video']
-    ]
-  },
-  placeholder: '请输入答案内容...'
-}
+const toolbars = [
+  'bold', // 粗体
+  'italic', // 斜体
+  'strikethrough', // 删除线
+  '|',
+  'header1', // 一级标题
+  'header2', // 二级标题
+  'header3', // 三级标题
+  '|',
+  'quote', // 引用
+  'code', // 代码
+  'inline-code', // 行内代码
+  '|',
+  'ordered-list', // 有序列表
+  'unordered-list', // 无序列表
+  '|',
+  'link', // 链接
+  'image', // 图片
+  'table', // 表格
+  '|',
+  'preview', // 预览
+  'fullscreen', // 全屏
+  'github-theme' // GitHub 主题
+]
 
-// 编辑器就绪回调
-const onEditorReady = (quill) => {
-  console.log('编辑器已就绪', quill)
-}
+const previewTheme = 'github'
+const codeTheme = 'github'
 
 // 提交表单
 const handleSubmit = async (values) => {
@@ -196,6 +199,30 @@ const handleTagInputConfirm = () => {
 // 移除标签
 const removeTag = (index) => {
   formState.tags.splice(index, 1)
+}
+
+// 处理图片上传
+const handleUploadImage = async (event, insertImage) => {
+  const file = event.target.files[0]
+  if (!file) return
+  
+  try {
+    const formData = new FormData()
+    formData.append('file', file)
+    
+    const res = await fileApi.upload(formData)
+    if (res.code === 200) {
+      insertImage({
+        url: res.value,
+        desc: file.name
+      })
+    } else {
+      message.error('图片上传失败')
+    }
+  } catch (error) {
+    console.error('图片上传失败:', error)
+    message.error('图片上传失败')
+  }
 }
 </script>
 
@@ -266,5 +293,47 @@ const removeTag = (index) => {
 :deep(.ql-editor) {
   padding: 16px;
   min-height: 300px;
+}
+
+.markdown-editor-container {
+  border: 1px solid #d9d9d9;
+  border-radius: 4px;
+}
+
+.markdown-editor-container :deep(.v-md-editor) {
+  border: none;
+}
+
+.markdown-editor-container :deep(.v-md-editor__toolbar) {
+  border-bottom: 1px solid #e8e8e8;
+}
+
+.markdown-editor-container :deep(.v-md-editor__preview) {
+  padding: 16px;
+  background: #fff;
+}
+
+/* 代码块样式 */
+.markdown-editor-container :deep(.v-md-editor__preview pre) {
+  background: #f6f8fa;
+  border-radius: 6px;
+  padding: 16px;
+}
+
+/* 表格样式 */
+.markdown-editor-container :deep(.v-md-editor__preview table) {
+  border-collapse: collapse;
+  margin: 16px 0;
+  width: 100%;
+}
+
+.markdown-editor-container :deep(.v-md-editor__preview th),
+.markdown-editor-container :deep(.v-md-editor__preview td) {
+  border: 1px solid #e8e8e8;
+  padding: 8px 16px;
+}
+
+.markdown-editor-container :deep(.v-md-editor__preview th) {
+  background: #f6f8fa;
 }
 </style> 

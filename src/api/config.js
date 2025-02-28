@@ -5,7 +5,6 @@ import { message } from 'ant-design-vue'
 // 创建 axios 实例
 const request = axios.create({
   baseURL: '/api',
-  timeout: 5000,
   headers: {
     'Content-Type': 'application/json'
   }

@@ -176,5 +176,16 @@ export const questionApi = {
         userId: JSON.parse(localStorage.getItem('userInfo')).id
       }
     })
+  },
+  // AI 生成题目
+  generateQuestions(data) {
+    return request({
+      url: '/question/ai/generate/question',
+      method: 'post',
+      data: {
+        questionType: data.questionType,
+        number: data.number
+      }
+    })
   }
 } 

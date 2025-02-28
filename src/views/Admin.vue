@@ -307,12 +307,13 @@ import { message, Button, Space, Tag, Popconfirm, Modal, Upload } from 'ant-desi
 import dayjs from 'dayjs'
 import { PlusOutlined, CameraOutlined, UploadOutlined, DownloadOutlined, DownOutlined } from '@ant-design/icons-vue'
 import AddQuestionModal from '@/components/AddQuestionModal.vue'
-import { useRouter } from 'vue-router'
+import { useRouter, useRoute } from 'vue-router'
 import { fileApi } from '@/api/file'
 
 // 注册 Upload 组件
 const AUpload = Upload
 
+const route = useRoute()
 const activeTab = ref('users')
 const loading = ref(false)
 const users = ref([])
@@ -1062,6 +1063,17 @@ const handleDownloadTemplate = async ({ key }) => {
     message.error('下载模板失败，请重试')
   }
 }
+
+// 监听路由 query 变化，自动切换标签页
+watch(
+  () => route.query.tab,
+  (newTab) => {
+    if (newTab) {
+      activeTab.value = newTab
+    }
+  },
+  { immediate: true }
+)
 
 onMounted(() => {
   if (activeTab.value === 'users') {
