@@ -6,6 +6,8 @@ import { message } from 'ant-design-vue'
 import Interview from '@/views/Interview.vue'
 import AIAssistant from '@/views/AIAssistant.vue'
 import Register from '@/views/Register.vue'
+import MockInterview from '@/views/MockInterview.vue'
+import MockInterviewChat from '@/views/MockInterviewChat.vue'
 
 // 路由配置
 const routes = [
@@ -21,6 +23,11 @@ const routes = [
       {
         path: '',
         component: Home
+      },
+      {
+        path: 'mock-interview',
+        component: MockInterview,
+        name: 'MockInterview'
       },
       {
         path: 'profile',
@@ -101,6 +108,11 @@ const routes = [
         path: 'bank/detail/:id',
         component: () => import('@/views/QuestionBankDetail.vue'),
         props: true
+      },
+      {
+        path: 'mock-interview/chat/:id',
+        component: MockInterviewChat,
+        name: 'MockInterviewChat'
       }
     ]
   },

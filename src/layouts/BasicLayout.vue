@@ -46,6 +46,12 @@
             </template>
             <span>AI助手</span>
           </a-menu-item>
+          <a-menu-item key="mock-interview" @click="router.push('/home/mock-interview')">
+            <template #icon>
+              <VideoCameraOutlined />
+            </template>
+            <span>模拟面试</span>
+          </a-menu-item>
           <a-sub-menu v-if="isAdmin" key="admin">
             <template #icon>
               <SettingOutlined />
@@ -116,7 +122,8 @@ import {
   DownOutlined,
   SettingOutlined,
   RobotOutlined,
-  FileTextOutlined
+  FileTextOutlined,
+  VideoCameraOutlined
 } from '@ant-design/icons-vue'
 
 const router = useRouter()
